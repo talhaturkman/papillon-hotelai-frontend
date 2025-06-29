@@ -8,19 +8,10 @@ require('dotenv').config();
 // Import Firebase service
 const firebaseService = require('./services/firebase');
 
-// Import admin routes with error handling
-let adminRoutes = null;
-try {
-    adminRoutes = require('./routes/admin');
-    console.log('âœ… Admin routes loaded successfully');
-} catch (error) {
-    console.warn('âš ï¸ Admin routes failed to load:', error.message);
-}
-
 const app = express();
 const PORT = process.env.PORT || 8080;
 
-console.log('íº€ Starting backend server with Gemini AI + Firebase + Admin integration...');
+console.log('ğŸš€ Starting backend server with Gemini AI + Firebase integration...');
 
 // Initialize Firebase
 firebaseService.initialize().catch(err => {
@@ -166,7 +157,7 @@ app.post('/api/chat/message', async (req, res) => {
         // Generate session ID if not provided
         const currentSessionId = sessionId || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-        console.log(`í²¬ Chat message received: "${message}"`);
+        console.log(`ğŸš€ Chat message received: "${message}"`);
 
         // Call Gemini AI
         const messages = [
@@ -178,7 +169,7 @@ app.post('/api/chat/message', async (req, res) => {
 
         let finalResponse;
         if (aiResult.success) {
-            console.log(`í´– AI response generated successfully`);
+            console.log(`ğŸš€ AI response generated successfully`);
             finalResponse = aiResult.response;
         } else {
             console.log(`âš ï¸ Using fallback response due to AI error`);
@@ -223,13 +214,36 @@ app.post('/api/chat/message', async (req, res) => {
     }
 });
 
-// Mount admin routes (if available)
-if (adminRoutes) {
-    console.log('âœ… Mounting admin routes at /api/admin');
-    app.use('/api/admin', adminRoutes);
-} else {
-    console.log('âš ï¸ Admin routes not available');
-}
+// Simple chat endpoint for testing - no external dependencies
+app.post('/api/chat/message', (req, res) => {
+    try {
+        const { message, sessionId, chatHistory = [] } = req.body;
+
+        if (!message || !message.trim()) {
+            return res.status(400).json({ error: 'Message is required' });
+        }
+
+        // Generate session ID if not provided
+        const currentSessionId = sessionId || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+        // Mock response for testing
+        const mockResponse = `Merhaba! "${message}" mesajÄ±nÄ±zÄ± aldÄ±m. Åu anda test modundayÄ±m, yakÄ±nda tam AI fonksiyonlarÄ± aktif olacak. ğŸš€`;
+
+        res.json({
+            success: true,
+            response: mockResponse,
+            sessionId: currentSessionId,
+            placesData: null
+        });
+
+    } catch (error) {
+        console.error('âŒ Chat endpoint error:', error);
+        res.status(500).json({ 
+            error: 'Internal server error',
+            fallbackMessage: 'ÃœzgÃ¼nÃ¼m, ÅŸu anda teknik bir sorun yaÅŸÄ±yorum. LÃ¼tfen tekrar deneyin.'
+        });
+    }
+});
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -238,9 +252,7 @@ app.get('/api/health', (req, res) => {
         timestamp: new Date().toISOString(),
         environment: process.env.NODE_ENV,
         port: PORT,
-        message: 'Backend server with Gemini AI + Firebase + Admin integration',
-        firebase: firebaseService.isInitialized ? 'Connected' : 'Disabled',
-        adminRoutes: adminRoutes ? 'Loaded' : 'Disabled'
+        message: 'Backend server with basic chat endpoint'
     });
 });
 
@@ -248,24 +260,19 @@ app.get('/api/health', (req, res) => {
 app.get('/api/debug/env', (req, res) => {
     res.json({
         GEMINI_API_KEY: process.env.GEMINI_API_KEY ? 'SET' : 'NOT_SET',
-        GOOGLE_CLOUD_API_KEY: process.env.GOOGLE_CLOUD_API_KEY ? 'SET' : 'NOT_SET',
-        ELEVENLABS_API_KEY: process.env.ELEVENLABS_API_KEY ? 'SET' : 'NOT_SET',
-        ADMIN_USERNAME: process.env.ADMIN_USERNAME || 'papillon_admin',
-        ADMIN_PASSWORD: process.env.ADMIN_PASSWORD ? 'SET' : 'DEFAULT',
         FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID,
         GEMINI_MODEL: process.env.GEMINI_MODEL,
         NODE_ENV: process.env.NODE_ENV,
         PORT: PORT,
         timestamp: new Date().toISOString(),
-        firebase_initialized: firebaseService.isInitialized,
-        admin_routes_loaded: adminRoutes ? true : false
+        firebase_initialized: firebaseService.isInitialized
     });
 });
 
 // Test endpoint
 app.get('/api/test', (req, res) => {
     res.json({
-        message: 'Backend server with Gemini AI + Firebase + Admin integration is working!',
+        message: 'Backend server is working!',
         timestamp: new Date().toISOString()
     });
 });
@@ -285,12 +292,10 @@ app.use('*', (req, res) => {
 });
 
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`íº€ Papillon Hotels AI Server running on port ${PORT}`);
-    console.log(`í¼ Environment: ${process.env.NODE_ENV}`);
-    console.log(`í´– Gemini AI Model: ${process.env.GEMINI_MODEL}`);
-    console.log(`í´¥ Firebase: ${firebaseService.isInitialized ? 'Connected' : 'Disabled'}`);
-    console.log(`í±¨â€í²¼ Admin Panel: ${adminRoutes ? 'Enabled' : 'Disabled'}`);
-    console.log(`í²¬ AI chat endpoint active at /api/chat/message`);
-    console.log(`í³Š Admin panel available at /api/admin/*`);
-    console.log(`í³± Server accessible on all network interfaces (0.0.0.0:${PORT})`);
+    console.log(`ğŸš€ Papillon Hotels AI Server running on port ${PORT}`);
+    console.log(`ğŸš€ Environment: ${process.env.NODE_ENV}`);
+    console.log(`ğŸš€ Gemini AI Model: ${process.env.GEMINI_MODEL}`);
+    console.log(`ğŸš€ Firebase: ${firebaseService.isInitialized ? 'Connected' : 'Disabled'}`);
+    console.log(`ğŸš€ AI chat endpoint active at /api/chat/message`);
+    console.log(`ğŸš€ Server accessible on all network interfaces (0.0.0.0:${PORT})`);
 });
