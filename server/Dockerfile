@@ -13,11 +13,9 @@ RUN npm ci --only=production && npm cache clean --force
 # Copy server source code
 COPY server/ ./server/
 
-# Copy service account key from root
-COPY gen-lang-client-0930707875-602c49a9d911.json ./
-
-# Copy environment file from root
-COPY .env ./
+# Note: .env and service account key are not copied
+# Environment variables are set directly in Cloud Run
+# Service account authentication uses Cloud Run's built-in service account
 
 # Expose port 8080 (Cloud Run standard)
 EXPOSE 8080
