@@ -1,11 +1,11 @@
 steps:
   # Build the container image using our Dockerfile
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/papillon-backend', '.']
+    args: ['build', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/papillon-hotelai-frontend', '.']
   
   # Push the container image to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/papillon-backend']
+    args: ['push', 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/papillon-hotelai-frontend']
   
   # Deploy container image to Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
@@ -13,9 +13,9 @@ steps:
     args:
     - 'run'
     - 'deploy'
-    - 'papillon-backend'
+    - 'papillon-hotelai-frontend'
     - '--image'
-    - 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/papillon-backend'
+    - 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/papillon-hotelai-frontend'
     - '--region'
     - 'us-central1'
     - '--platform'
@@ -43,7 +43,7 @@ steps:
     - 'GOOGLE_APPLICATION_CREDENTIALS_JSON=firebase:latest'
 
 images:
-  - 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/papillon-backend'
+  - 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/papillon-hotelai-frontend'
 
 substitutions:
   _GOOGLE_CLOUD_API_KEY: 'AIzaSyBiqxFAooCoJX1y-_IgDbVAtoaZ2SVKmxk'
