@@ -5,18 +5,10 @@ const rateLimit = require('express-rate-limit');
 const axios = require('axios'); // For Gemini API
 require('dotenv').config();
 
-// Import Firebase service
-const firebaseService = require('./services/firebase');
-
 const app = express();
 const PORT = process.env.PORT || 8080;
 
-console.log('Ì∫Ä Starting backend server with Gemini AI + Firebase integration...');
-
-// Initialize Firebase
-firebaseService.initialize().catch(err => {
-    console.warn('‚ö†Ô∏è Firebase initialization failed, continuing without Firebase:', err.message);
-});
+console.log('ÔøΩÔøΩÔøΩ Starting backend server with Gemini AI integration...');
 
 // Trust proxy settings for proper IP detection
 app.set('trust proxy', process.env.NODE_ENV === 'production' ? 1 : false);
@@ -145,7 +137,7 @@ Misafirlerin sorularƒ±nƒ± doƒüal ≈üekilde yanƒ±tla. Sadece otel-spesifik bilgi g
     }
 }
 
-// Chat endpoint with Gemini AI + Firebase logging
+// Chat endpoint with Gemini AI
 app.post('/api/chat/message', async (req, res) => {
     try {
         const { message, sessionId, chatHistory = [] } = req.body;
@@ -157,7 +149,7 @@ app.post('/api/chat/message', async (req, res) => {
         // Generate session ID if not provided
         const currentSessionId = sessionId || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-        console.log(`Ì≤¨ Chat message received: "${message}"`);
+        console.log(`ÔøΩÔøΩÔøΩ Chat message received: "${message}"`);
 
         // Call Gemini AI
         const messages = [
@@ -167,43 +159,23 @@ app.post('/api/chat/message', async (req, res) => {
 
         const aiResult = await callGeminiAPI(messages);
 
-        let finalResponse;
         if (aiResult.success) {
-            console.log(`Ì¥ñ AI response generated successfully`);
-            finalResponse = aiResult.response;
+            console.log(`ÔøΩÔøΩÔøΩ AI response generated successfully`);
+            res.json({
+                success: true,
+                response: aiResult.response,
+                sessionId: currentSessionId,
+                placesData: null
+            });
         } else {
             console.log(`‚ö†Ô∏è Using fallback response due to AI error`);
-            finalResponse = aiResult.fallbackResponse;
+            res.json({
+                success: true,
+                response: aiResult.fallbackResponse,
+                sessionId: currentSessionId,
+                placesData: null
+            });
         }
-
-        // Store conversation in Firebase (if available)
-        try {
-            if (firebaseService.isInitialized) {
-                const conversationData = {
-                    sessionId: currentSessionId,
-                    userMessage: message,
-                    aiResponse: finalResponse,
-                    timestamp: new Date().toISOString(),
-                    userAgent: req.headers['user-agent'] || 'unknown',
-                    ipAddress: req.ip || req.connection.remoteAddress || 'unknown'
-                };
-
-                await firebaseService.storeChatLog(conversationData);
-                console.log(`‚úÖ Chat stored to Firebase: ${currentSessionId}`);
-            } else {
-                console.log(`‚ö†Ô∏è Firebase not available, chat not stored`);
-            }
-        } catch (firebaseError) {
-            console.warn('‚ö†Ô∏è Failed to store chat log:', firebaseError.message);
-            // Don't fail the request if Firebase fails
-        }
-
-        res.json({
-            success: true,
-            response: finalResponse,
-            sessionId: currentSessionId,
-            placesData: null
-        });
 
     } catch (error) {
         console.error('‚ùå Chat endpoint error:', error);
@@ -221,8 +193,7 @@ app.get('/api/health', (req, res) => {
         timestamp: new Date().toISOString(),
         environment: process.env.NODE_ENV,
         port: PORT,
-        message: 'Backend server with Gemini AI + Firebase integration',
-        firebase: firebaseService.isInitialized ? 'Connected' : 'Disabled'
+        message: 'Backend server with Gemini AI integration'
     });
 });
 
@@ -234,17 +205,47 @@ app.get('/api/debug/env', (req, res) => {
         GEMINI_MODEL: process.env.GEMINI_MODEL,
         NODE_ENV: process.env.NODE_ENV,
         PORT: PORT,
-        timestamp: new Date().toISOString(),
-        firebase_initialized: firebaseService.isInitialized
+        timestamp: new Date().toISOString()
     });
 });
 
 // Test endpoint
 app.get('/api/test', (req, res) => {
     res.json({
-        message: 'Backend server with Gemini AI + Firebase is working!',
+        message: 'Backend server is working!',
         timestamp: new Date().toISOString()
     });
+});
+
+// Simple chat endpoint for testing - no dependencies
+app.post('/api/chat/message', (req, res) => {
+    try {
+        const { message, sessionId, chatHistory = [] } = req.body;
+
+        if (!message || !message.trim()) {
+            return res.status(400).json({ error: 'Message is required' });
+        }
+
+        // Generate session ID if not provided
+        const currentSessionId = sessionId || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+        // Mock response for testing
+        const mockResponse = `Merhaba! "${message}" mesajƒ±nƒ±zƒ± aldƒ±m. ≈ûu anda test modundayƒ±m, yakƒ±nda tam AI fonksiyonlarƒ± aktif olacak. üöÄ`;
+
+        res.json({
+            success: true,
+            response: mockResponse,
+            sessionId: currentSessionId,
+            placesData: null
+        });
+
+    } catch (error) {
+        console.error('‚ùå Chat endpoint error:', error);
+        res.status(500).json({ 
+            error: 'Internal server error',
+            fallbackMessage: '√úzg√ºn√ºm, ≈üu anda teknik bir sorun ya≈üƒ±yorum. L√ºtfen tekrar deneyin.'
+        });
+    }
 });
 
 // Error handling middleware
@@ -262,10 +263,9 @@ app.use('*', (req, res) => {
 });
 
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Ì∫Ä Papillon Hotels AI Server running on port ${PORT}`);
-    console.log(`Ìºç Environment: ${process.env.NODE_ENV}`);
-    console.log(`Ì¥ñ Gemini AI Model: ${process.env.GEMINI_MODEL}`);
-    console.log(`Ì¥• Firebase: ${firebaseService.isInitialized ? 'Connected' : 'Disabled'}`);
-    console.log(`Ì≤¨ AI chat endpoint active at /api/chat/message`);
-    console.log(`ÔøΩÔøΩ Server accessible on all network interfaces (0.0.0.0:${PORT})`);
+    console.log(`ÔøΩÔøΩÔøΩ Papillon Hotels AI Server running on port ${PORT}`);
+    console.log(`ÔøΩÔøΩÔøΩ Environment: ${process.env.NODE_ENV}`);
+    console.log(`ÔøΩÔøΩÔøΩ Gemini AI Model: ${process.env.GEMINI_MODEL}`);
+    console.log(`ÔøΩÔøΩÔøΩ AI chat endpoint active at /api/chat/message`);
+    console.log(`ÔøΩÔøΩÔøΩ Server accessible on all network interfaces (0.0.0.0:${PORT})`);
 });
