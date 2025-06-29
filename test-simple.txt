@@ -12,4 +12,4 @@ Zeugma Hotel Information:
 - Rooms: 250
 - Amenities: Beach, Golf, Fitness
 
-This is a test to verify Document AI processing works correctly. 
+This is a test to verify Document AI processing works correctly. # Trigger test - Sun, Jun 29, 2025  7:47:49 PM
