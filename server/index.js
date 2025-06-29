@@ -2,7 +2,6 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-const path = require('path');
 require('dotenv').config();
 
 // Import routes
@@ -11,7 +10,7 @@ const adminRoutes = require('./routes/admin');
 const knowledgeRoutes = require('./routes/knowledge');
 
 const app = express();
-const PORT = process.env.PORT || 8080; // Cloud Run uses port 8080
+const PORT = process.env.PORT || 8080;
 
 // Trust proxy settings for proper IP detection
 app.set('trust proxy', process.env.NODE_ENV === 'production' ? 1 : false);
@@ -20,49 +19,45 @@ app.set('trust proxy', process.env.NODE_ENV === 'production' ? 1 : false);
 app.use(helmet());
 app.use(cors({
     origin: process.env.NODE_ENV === 'production' ? [
-        'https://ai.talhaturkman.com',           // Production frontend domain
-        'https://gen-lang-client-0930707875.web.app',  // Firebase hosting backup
-        'https://talhaturkman.com',              // Root domain
-        'https://www.talhaturkman.com'           // WWW subdomain
+        'https://ai.talhaturkman.com',
+        'https://gen-lang-client-0930707875.web.app',
+        'https://talhaturkman.com',
+        'https://www.talhaturkman.com'
     ] : [
         'http://localhost:3000', 
         'http://localhost:5173',
-        'http://192.168.4.151:3000',   // Ethernet IP - port 3000
-        'http://192.168.4.151:5173',   // Ethernet IP - port 5173  
-        'http://192.168.7.2:3000',     // Other IP - port 3000
-        'http://192.168.7.2:5173',     // Other IP - port 5173
-        'http://192.168.137.1:3001',   // 🚀 Hotspot IP - port 3001 (Production Build HTTP)
-        'https://192.168.137.1:3001',  // 🔐 Hotspot IP - port 3001 (Production Build HTTPS)
-        'http://192.168.137.1:63659',   // ✨ Hotspot IP - port 63659 (Serve SPA)
-        'http://192.168.137.1:3000',   // 🔥 Hotspot IP - port 3000 (CRITICAL!)
-        'http://192.168.137.1:5173',   // Hotspot IP - port 5173
-        /^https?:\/\/192\.168\.\d+\.\d+:(3000|3001|5173|63659)$/,  // Any local network with HTTP/HTTPS
-        'https://gen-lang-client-0930707875.web.app',  // Current Firebase hosting
-        'https://ai.talhaturkman.com',           // Production frontend domain
-        'https://papillonai-backend.loca.lt'     // Current tunnel
+        'http://192.168.4.151:3000',
+        'http://192.168.4.151:5173',
+        'http://192.168.7.2:3000',
+        'http://192.168.7.2:5173',
+        'http://192.168.137.1:3001',
+        'https://192.168.137.1:3001',
+        'http://192.168.137.1:63659',
+        'http://192.168.137.1:3000',
+        'http://192.168.137.1:5173',
+        /^https?:\/\/192\.168\.\d+\.\d+:(3000|3001|5173|63659)$/,
+        'https://gen-lang-client-0930707875.web.app',
+        'https://ai.talhaturkman.com',
+        'https://papillonai-backend.loca.lt'
     ],
     credentials: true
 }));
 
-// Rate limiting - only in production or when needed
+// Rate limiting
 if (process.env.NODE_ENV === 'production') {
     const limiter = rateLimit({
         windowMs: 15 * 60 * 1000, // 15 minutes
-        max: 100, // limit each IP to 100 requests per windowMs
-        message: {
-            error: 'Too many requests from this IP, please try again later.'
-        },
-        standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
-        legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+        max: 100,
+        message: { error: 'Too many requests from this IP, please try again later.' },
+        standardHeaders: true,
+        legacyHeaders: false,
     });
     app.use(limiter);
 } else {
-    // In development, use more relaxed rate limiting
     const devLimiter = rateLimit({
-        windowMs: 15 * 60 * 1000, // 15 minutes
-        max: 1000, // Much higher limit for development
+        windowMs: 15 * 60 * 1000,
+        max: 1000,
         skip: (req) => {
-            // Skip rate limiting for localhost
             return req.ip === '127.0.0.1' || req.ip === '::1' || req.ip === '::ffff:127.0.0.1';
         },
         standardHeaders: true,
@@ -74,8 +69,6 @@ if (process.env.NODE_ENV === 'production') {
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-
-// Note: Static file serving removed - frontend deployed separately on Firebase Hosting
 
 // API Routes
 app.use('/api/chat', chatRoutes);
@@ -106,8 +99,6 @@ app.get('/api/debug/env', (req, res) => {
         timestamp: new Date().toISOString()
     });
 });
-
-// Note: Frontend routing removed - handled by Firebase Hosting
 
 // Error handling middleware
 app.use((err, req, res, next) => {
