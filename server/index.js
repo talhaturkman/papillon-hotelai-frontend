@@ -2,12 +2,13 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const axios = require('axios'); // For Gemini API
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 8080;
 
-console.log('��� Starting backend server with basic chat functionality...');
+console.log('��� Starting backend server with Gemini AI integration...');
 
 // Trust proxy settings for proper IP detection
 app.set('trust proxy', process.env.NODE_ENV === 'production' ? 1 : false);
@@ -45,8 +46,99 @@ if (process.env.NODE_ENV === 'production') {
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Simple chat endpoint for testing - no external dependencies
-app.post('/api/chat/message', (req, res) => {
+// Gemini AI function
+async function callGeminiAPI(messages, detectedLanguage = 'tr') {
+    try {
+        const apiKey = process.env.GEMINI_API_KEY;
+        const model = process.env.GEMINI_MODEL || 'gemini-2.0-flash-exp';
+        
+        if (!apiKey) {
+            throw new Error('GEMINI_API_KEY not configured');
+        }
+
+        const systemPrompt = `Sen Papillon Hotels'in yapay zeka asistanısın. Papillon Hotels'un 3 oteli var: Belvil, Zeugma ve Ayscha. 
+
+ÖNEMLİ: SADECE TÜRKÇE YANIT VER!
+
+OTEL TESPİTİ VE BİLGİ PAYLAŞIMI:
+- Eğer soru GENEL nitelikte ise (selam, nasılsın, teşekkür vb.) direkt yanıtla, otel sorma
+- Eğer soru KİŞİSEL/GENEL ise (personel tanıma, genel sohbet) direkt yanıtla, otel sorma  
+- Eğer soru OTEL-SPESİFİK ise (odalar, restoranlar, aktiviteler, spa, pool vb.) VE otel belirtilmemişse, o zaman sor: "Bu bilgiyi size doğru şekilde verebilmem için hangi Papillon otelinde konaklamaktasınız? Belvil, Zeugma yoksa Ayscha?"
+- Eğer zaten otel context'i varsa, direkt bilgi ver
+
+YANITLAMA KURALLARI:
+- Yanıtlarını düzenli ve okunaklı şekilde formatla
+- Önemli bilgileri **kalın** yap
+- Başlıklar için ### kullan
+- Liste için - kullan
+- Sayılı liste için 1. 2. 3. kullan
+- Karmaşık bilgileri kategorilere ayır
+- Kısa ve net yanıtlar ver
+
+Misafirlerin sorularını doğal şekilde yanıtla. Sadece otel-spesifik bilgi gerektiğinde otel sor. TÜM YANITLARIN TÜRKÇE OLMALI.`;
+
+        let conversationHistory = [
+            {
+                role: "user",
+                parts: [{ text: systemPrompt }]
+            },
+            {
+                role: "model", 
+                parts: [{ text: "Anladım! Papillon Hotels asistanı olarak yardımcı olmaya hazırım." }]
+            }
+        ];
+
+        messages.forEach(message => {
+            conversationHistory.push({
+                role: message.role === 'user' ? 'user' : 'model',
+                parts: [{ text: message.content }]
+            });
+        });
+
+        const requestData = {
+            contents: conversationHistory,
+            generationConfig: {
+                temperature: 0.7,
+                maxOutputTokens: 1024,
+            }
+        };
+
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+        
+        const response = await axios.post(
+            `${apiUrl}?key=${apiKey}`,
+            requestData,
+            {
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                timeout: 30000
+            }
+        );
+
+        if (response.data && response.data.candidates && response.data.candidates[0]) {
+            const aiResponse = response.data.candidates[0].content.parts[0].text;
+            console.log(`✅ Gemini API Success: Response length ${aiResponse.length} chars`);
+            return {
+                success: true,
+                response: aiResponse
+            };
+        } else {
+            throw new Error('Unexpected response format from Gemini API');
+        }
+
+    } catch (error) {
+        console.error('❌ Gemini API Error:', error.message);
+        return {
+            success: false,
+            error: error.message,
+            fallbackResponse: 'Üzgünüm, şu anda AI sistemimde teknik bir sorun var. Lütfen tekrar deneyin.'
+        };
+    }
+}
+
+// Chat endpoint with Gemini AI
+app.post('/api/chat/message', async (req, res) => {
     try {
         const { message, sessionId, chatHistory = [] } = req.body;
 
@@ -57,17 +149,33 @@ app.post('/api/chat/message', (req, res) => {
         // Generate session ID if not provided
         const currentSessionId = sessionId || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-        // Mock response for testing
-        const mockResponse = `Merhaba! "${message}" mesajınızı aldım. Şu anda test modundayım, yakında tam AI fonksiyonları aktif olacak. ���`;
+        console.log(`��� Chat message received: "${message}"`);
 
-        console.log(`��� Chat message received: "${message}" - responding with mock message`);
+        // Call Gemini AI
+        const messages = [
+            ...chatHistory,
+            { role: 'user', content: message }
+        ];
 
-        res.json({
-            success: true,
-            response: mockResponse,
-            sessionId: currentSessionId,
-            placesData: null
-        });
+        const aiResult = await callGeminiAPI(messages);
+
+        if (aiResult.success) {
+            console.log(`��� AI response generated successfully`);
+            res.json({
+                success: true,
+                response: aiResult.response,
+                sessionId: currentSessionId,
+                placesData: null
+            });
+        } else {
+            console.log(`⚠️ Using fallback response due to AI error`);
+            res.json({
+                success: true,
+                response: aiResult.fallbackResponse,
+                sessionId: currentSessionId,
+                placesData: null
+            });
+        }
 
     } catch (error) {
         console.error('❌ Chat endpoint error:', error);
@@ -85,13 +193,14 @@ app.get('/api/health', (req, res) => {
         timestamp: new Date().toISOString(),
         environment: process.env.NODE_ENV,
         port: PORT,
-        message: 'Backend server with basic chat endpoint'
+        message: 'Backend server with Gemini AI integration'
     });
 });
 
 // Debug endpoint for environment variables
 app.get('/api/debug/env', (req, res) => {
     res.json({
+        GEMINI_API_KEY: process.env.GEMINI_API_KEY ? 'SET' : 'NOT_SET',
         FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID,
         GEMINI_MODEL: process.env.GEMINI_MODEL,
         NODE_ENV: process.env.NODE_ENV,
@@ -103,7 +212,7 @@ app.get('/api/debug/env', (req, res) => {
 // Test endpoint
 app.get('/api/test', (req, res) => {
     res.json({
-        message: 'Backend server is working!',
+        message: 'Backend server with Gemini AI is working!',
         timestamp: new Date().toISOString()
     });
 });
@@ -125,6 +234,7 @@ app.use('*', (req, res) => {
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`��� Papillon Hotels AI Server running on port ${PORT}`);
     console.log(`��� Environment: ${process.env.NODE_ENV}`);
-    console.log(`��� Basic chat endpoint active at /api/chat/message`);
+    console.log(`��� Gemini AI Model: ${process.env.GEMINI_MODEL}`);
+    console.log(`��� AI chat endpoint active at /api/chat/message`);
     console.log(`��� Server accessible on all network interfaces (0.0.0.0:${PORT})`);
 });

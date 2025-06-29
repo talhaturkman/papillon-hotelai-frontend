@@ -34,6 +34,8 @@ steps:
     - '--set-env-vars'
     - 'GOOGLE_CLOUD_API_KEY=AIzaSyBiqxFAooCoJX1y-_IgDbVAtoaZ2SVKmxk'
     - '--set-env-vars'
+    - 'GEMINI_API_KEY=AIzaSyBiqxFAooCoJX1y-_IgDbVAtoaZ2SVKmxk'
+    - '--set-env-vars'
     - 'GEMINI_MODEL=gemini-2.0-flash-exp'
     - '--set-env-vars'
     - 'FIREBASE_PROJECT_ID=gen-lang-client-0930707875'
