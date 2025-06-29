@@ -11,27 +11,38 @@ class FirebaseService {
         if (this.isInitialized) return;
 
         try {
-            // Use JSON file path if available, otherwise use environment variables
-            const serviceAccountPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
-            
             let credential;
-            if (serviceAccountPath && require('fs').existsSync(serviceAccountPath)) {
+            
+            // First try: Secret Manager (Cloud Run)
+            if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
                 try {
-                    // Use JSON file with absolute path
-                    const absolutePath = path.resolve(serviceAccountPath);
-                    console.log(`🔍 Loading Firebase credentials from: ${absolutePath}`);
-                    const serviceAccount = require(absolutePath);
+                    console.log('🔍 Loading Firebase credentials from Secret Manager...');
+                    const serviceAccount = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
                     
                     // Validate required fields
                     if (!serviceAccount.private_key) {
-                        throw new Error('private_key missing in JSON file');
+                        throw new Error('private_key missing in secret JSON');
                     }
                     if (!serviceAccount.client_email) {
-                        throw new Error('client_email missing in JSON file');
+                        throw new Error('client_email missing in secret JSON');
                     }
                     if (!serviceAccount.project_id) {
-                        throw new Error('project_id missing in JSON file');
+                        throw new Error('project_id missing in secret JSON');
                     }
+                    
+                    credential = admin.credential.cert(serviceAccount);
+                    console.log('✅ Using Firebase Secret Manager credentials');
+                } catch (secretError) {
+                    console.error('❌ Error parsing Secret Manager JSON:', secretError.message);
+                    throw secretError;
+                }
+            }
+            // Second try: Local JSON file path
+            else if (process.env.GOOGLE_APPLICATION_CREDENTIALS && require('fs').existsSync(process.env.GOOGLE_APPLICATION_CREDENTIALS)) {
+                try {
+                    const absolutePath = path.resolve(process.env.GOOGLE_APPLICATION_CREDENTIALS);
+                    console.log(`🔍 Loading Firebase credentials from: ${absolutePath}`);
+                    const serviceAccount = require(absolutePath);
                     
                     credential = admin.credential.cert(serviceAccount);
                     console.log('✅ Using Firebase JSON credentials file');
@@ -39,8 +50,9 @@ class FirebaseService {
                     console.error('❌ Error reading JSON file:', jsonError.message);
                     throw jsonError;
                 }
-            } else {
-                // Use environment variables
+            }
+            // Third try: Environment variables
+            else {
                 console.log('🔍 JSON file not found, trying environment variables...');
                 const serviceAccount = {
                     type: "service_account",
@@ -49,15 +61,21 @@ class FirebaseService {
                     private_key: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
                 };
                 
-                // Validate environment variables
+                // Make Firebase optional - don't crash if credentials are missing
                 if (!serviceAccount.private_key) {
-                    throw new Error('FIREBASE_PRIVATE_KEY environment variable missing');
+                    console.warn('⚠️ FIREBASE_PRIVATE_KEY environment variable missing - Firebase features disabled');
+                    this.isInitialized = false;
+                    return;
                 }
                 if (!serviceAccount.client_email) {
-                    throw new Error('FIREBASE_CLIENT_EMAIL environment variable missing');
+                    console.warn('⚠️ FIREBASE_CLIENT_EMAIL environment variable missing - Firebase features disabled');
+                    this.isInitialized = false;
+                    return;
                 }
                 if (!serviceAccount.project_id) {
-                    throw new Error('FIREBASE_PROJECT_ID environment variable missing');
+                    console.warn('⚠️ FIREBASE_PROJECT_ID environment variable missing - Firebase features disabled');
+                    this.isInitialized = false;
+                    return;
                 }
                 
                 credential = admin.credential.cert(serviceAccount);
@@ -67,7 +85,7 @@ class FirebaseService {
             if (!admin.apps.length) {
                 admin.initializeApp({
                     credential: credential,
-                    databaseURL: `https://${process.env.FIREBASE_PROJECT_ID}-default-rtdb.firebaseio.com`
+                    databaseURL: `https://${process.env.FIREBASE_PROJECT_ID || 'gen-lang-client-0930707875'}-default-rtdb.firebaseio.com`
                 });
             }
 
@@ -76,8 +94,9 @@ class FirebaseService {
             console.log('✅ Firebase service initialized successfully');
         } catch (error) {
             console.error('❌ Firebase initialization error:', error);
-            console.error('💡 Make sure you have valid Firebase credentials configured');
-            throw error;
+            console.warn('⚠️ Firebase features will be disabled - server will continue without Firebase');
+            this.isInitialized = false;
+            // Don't throw error - let server continue without Firebase
         }
     }
 
