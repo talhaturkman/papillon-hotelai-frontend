@@ -30,8 +30,16 @@ steps:
     - '--max-instances'
     - '10'
     - '--set-env-vars'
-    - 'NODE_ENV=production,GOOGLE_CLOUD_API_KEY=AIzaSyBiqxFAooCoJX1y-_IgDbVAtoaZ2SVKmxk,GEMINI_MODEL=gemini-2.0-flash-exp,FIREBASE_PROJECT_ID=gen-lang-client-0930707875,ELEVENLABS_API_KEY=sk_51c6df326ba2847994ab912eb3a34fefacd286f202c55948,GOOGLE_APPLICATION_CREDENTIALS_JSON=${_FIREBASE_SECRET}'
-    - '--set-secrets'
+    - 'NODE_ENV=production'
+    - '--set-env-vars'
+    - 'GOOGLE_CLOUD_API_KEY=AIzaSyBiqxFAooCoJX1y-_IgDbVAtoaZ2SVKmxk'
+    - '--set-env-vars'
+    - 'GEMINI_MODEL=gemini-2.0-flash-exp'
+    - '--set-env-vars'
+    - 'FIREBASE_PROJECT_ID=gen-lang-client-0930707875'
+    - '--set-env-vars'
+    - 'ELEVENLABS_API_KEY=sk_51c6df326ba2847994ab912eb3a34fefacd286f202c55948'
+    - '--update-secrets'
     - 'GOOGLE_APPLICATION_CREDENTIALS_JSON=firebase:latest'
 
 images:
