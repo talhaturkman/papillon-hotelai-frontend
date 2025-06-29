@@ -4,7 +4,7 @@ FROM node:18-slim
 # Set working directory
 WORKDIR /app
 
-# Copy package files
+# Copy root package.json for dependency management
 COPY package*.json ./
 
 # Install dependencies
@@ -13,11 +13,11 @@ RUN npm ci --only=production && npm cache clean --force
 # Copy server source code
 COPY server/ ./server/
 
-# Copy service account key
+# Copy service account key from root
 COPY gen-lang-client-0930707875-602c49a9d911.json ./
 
-# Create environment file template
-RUN echo "# Environment variables will be set by Cloud Run" > .env
+# Copy environment file from root
+COPY .env ./
 
 # Expose port 8080 (Cloud Run standard)
 EXPOSE 8080
@@ -26,5 +26,5 @@ EXPOSE 8080
 ENV NODE_ENV=production
 ENV PORT=8080
 
-# Start the server
+# Start the server from server directory
 CMD ["node", "server/index.js"] 
