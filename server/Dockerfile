@@ -4,13 +4,14 @@ FROM node:18-slim
 # Set working directory
 WORKDIR /app
 
-# Copy root package.json for dependency management
-COPY package*.json ./
+# Copy only package files that we know exist
+COPY package.json ./
+COPY package-lock.json ./
 
-# Install dependencies
-RUN npm ci --only=production && npm cache clean --force
+# Install ALL dependencies (including dev dependencies for build)
+RUN npm install
 
-# Copy server source code
+# Copy ONLY the server directory
 COPY server/ ./server/
 
 # Note: .env and service account key are not copied
