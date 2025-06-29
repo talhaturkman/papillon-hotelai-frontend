@@ -1,0 +1,9 @@
+client/
+test*.js
+test*.html
+*.md
+.git/
+node_modules/
+*.log
+uploads/
+.env 
