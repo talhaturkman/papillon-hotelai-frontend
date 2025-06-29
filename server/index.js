@@ -4,13 +4,15 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
-// Import routes
-const chatRoutes = require('./routes/chat');
-const adminRoutes = require('./routes/admin');
-const knowledgeRoutes = require('./routes/knowledge');
+// Import routes - temporarily commented out for debugging
+// const chatRoutes = require('./routes/chat');
+// const adminRoutes = require('./routes/admin'); 
+// const knowledgeRoutes = require('./routes/knowledge');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
+
+console.log('Ì¥ß Starting basic server without routes for debugging...');
 
 // Trust proxy settings for proper IP detection
 app.set('trust proxy', process.env.NODE_ENV === 'production' ? 1 : false);
@@ -26,16 +28,6 @@ app.use(cors({
     ] : [
         'http://localhost:3000', 
         'http://localhost:5173',
-        'http://192.168.4.151:3000',
-        'http://192.168.4.151:5173',
-        'http://192.168.7.2:3000',
-        'http://192.168.7.2:5173',
-        'http://192.168.137.1:3001',
-        'https://192.168.137.1:3001',
-        'http://192.168.137.1:63659',
-        'http://192.168.137.1:3000',
-        'http://192.168.137.1:5173',
-        /^https?:\/\/192\.168\.\d+\.\d+:(3000|3001|5173|63659)$/,
         'https://gen-lang-client-0930707875.web.app',
         'https://ai.talhaturkman.com'
     ],
@@ -52,27 +44,16 @@ if (process.env.NODE_ENV === 'production') {
         legacyHeaders: false,
     });
     app.use(limiter);
-} else {
-    const devLimiter = rateLimit({
-        windowMs: 15 * 60 * 1000,
-        max: 1000,
-        skip: (req) => {
-            return req.ip === '127.0.0.1' || req.ip === '::1' || req.ip === '::ffff:127.0.0.1';
-        },
-        standardHeaders: true,
-        legacyHeaders: false,
-    });
-    app.use(devLimiter);
 }
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// API Routes
-app.use('/api/chat', chatRoutes);
-app.use('/api/admin', adminRoutes);
-app.use('/api/knowledge', knowledgeRoutes);
+// API Routes - temporarily commented out for debugging
+// app.use('/api/chat', chatRoutes);
+// app.use('/api/admin', adminRoutes);
+// app.use('/api/knowledge', knowledgeRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -80,21 +61,28 @@ app.get('/api/health', (req, res) => {
         status: 'OK', 
         timestamp: new Date().toISOString(),
         environment: process.env.NODE_ENV,
-        port: PORT
+        port: PORT,
+        message: 'Basic server running - routes temporarily disabled for debugging'
     });
 });
 
 // Debug endpoint for environment variables
 app.get('/api/debug/env', (req, res) => {
     res.json({
-        DOCUMENT_AI_PROJECT_ID: process.env.DOCUMENT_AI_PROJECT_ID,
-        DOCUMENT_AI_LOCATION: process.env.DOCUMENT_AI_LOCATION,
-        DOCUMENT_AI_PROCESSOR_ID: process.env.DOCUMENT_AI_PROCESSOR_ID,
+        GOOGLE_CLOUD_API_KEY: process.env.GOOGLE_CLOUD_API_KEY ? 'SET' : 'NOT_SET',
         FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID,
-        GOOGLE_APPLICATION_CREDENTIALS: process.env.GOOGLE_APPLICATION_CREDENTIALS,
         GEMINI_MODEL: process.env.GEMINI_MODEL,
         NODE_ENV: process.env.NODE_ENV,
         PORT: PORT,
+        ELEVENLABS_API_KEY: process.env.ELEVENLABS_API_KEY ? 'SET' : 'NOT_SET',
+        timestamp: new Date().toISOString()
+    });
+});
+
+// Test endpoint
+app.get('/api/test', (req, res) => {
+    res.json({
+        message: 'Server is working!',
         timestamp: new Date().toISOString()
     });
 });
@@ -114,8 +102,9 @@ app.use('*', (req, res) => {
 });
 
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Ì∫Ä Papillon Hotels AI Server running on port ${PORT}`);
-    console.log(`Ìºç Environment: ${process.env.NODE_ENV}`);
-    console.log(`Ì¥ñ Gemini Model: ${process.env.GEMINI_MODEL}`);
-    console.log(`Ì≥± Server accessible on all network interfaces (0.0.0.0:${PORT})`);
+    console.log('Ì∫Ä Papillon Hotels AI Server running on port ' + PORT);
+    console.log('Ìºç Environment: ' + process.env.NODE_ENV);
+    console.log('Ì¥ñ Gemini Model: ' + process.env.GEMINI_MODEL);
+    console.log('Ì≥± Server accessible on all network interfaces (0.0.0.0:' + PORT + ')');
+    console.log('‚ö†Ô∏è Routes temporarily disabled for debugging');
 });
