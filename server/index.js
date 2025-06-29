@@ -2,17 +2,16 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const path = require('path');
 require('dotenv').config();
 
-// Import routes - temporarily commented out for debugging
-// const chatRoutes = require('./routes/chat');
-// const adminRoutes = require('./routes/admin'); 
-// const knowledgeRoutes = require('./routes/knowledge');
+// Import routes
+const chatRoutes = require('./routes/chat');
+const adminRoutes = require('./routes/admin');
+const knowledgeRoutes = require('./routes/knowledge');
 
 const app = express();
-const PORT = process.env.PORT || 8080;
-
-console.log('Ì¥ß Starting basic server without routes for debugging...');
+const PORT = process.env.PORT || 8080; // Cloud Run uses port 8080
 
 // Trust proxy settings for proper IP detection
 app.set('trust proxy', process.env.NODE_ENV === 'production' ? 1 : false);
@@ -21,39 +20,67 @@ app.set('trust proxy', process.env.NODE_ENV === 'production' ? 1 : false);
 app.use(helmet());
 app.use(cors({
     origin: process.env.NODE_ENV === 'production' ? [
-        'https://ai.talhaturkman.com',
-        'https://gen-lang-client-0930707875.web.app',
-        'https://talhaturkman.com',
-        'https://www.talhaturkman.com'
+        'https://ai.talhaturkman.com',           // Production frontend domain
+        'https://gen-lang-client-0930707875.web.app',  // Firebase hosting backup
+        'https://talhaturkman.com',              // Root domain
+        'https://www.talhaturkman.com'           // WWW subdomain
     ] : [
         'http://localhost:3000', 
         'http://localhost:5173',
-        'https://gen-lang-client-0930707875.web.app',
-        'https://ai.talhaturkman.com'
+        'http://192.168.4.151:3000',   // Ethernet IP - port 3000
+        'http://192.168.4.151:5173',   // Ethernet IP - port 5173  
+        'http://192.168.7.2:3000',     // Other IP - port 3000
+        'http://192.168.7.2:5173',     // Other IP - port 5173
+        'http://192.168.137.1:3001',   // üöÄ Hotspot IP - port 3001 (Production Build HTTP)
+        'https://192.168.137.1:3001',  // üîê Hotspot IP - port 3001 (Production Build HTTPS)
+        'http://192.168.137.1:63659',   // ‚ú® Hotspot IP - port 63659 (Serve SPA)
+        'http://192.168.137.1:3000',   // üî• Hotspot IP - port 3000 (CRITICAL!)
+        'http://192.168.137.1:5173',   // Hotspot IP - port 5173
+        /^https?:\/\/192\.168\.\d+\.\d+:(3000|3001|5173|63659)$/,  // Any local network with HTTP/HTTPS
+        'https://gen-lang-client-0930707875.web.app',  // Current Firebase hosting
+        'https://ai.talhaturkman.com',           // Production frontend domain
+        'https://papillonai-backend.loca.lt'     // Current tunnel
     ],
     credentials: true
 }));
 
-// Rate limiting
+// Rate limiting - only in production or when needed
 if (process.env.NODE_ENV === 'production') {
     const limiter = rateLimit({
-        windowMs: 15 * 60 * 1000,
-        max: 100,
-        message: { error: 'Too many requests from this IP, please try again later.' },
+        windowMs: 15 * 60 * 1000, // 15 minutes
+        max: 100, // limit each IP to 100 requests per windowMs
+        message: {
+            error: 'Too many requests from this IP, please try again later.'
+        },
+        standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+        legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+    });
+    app.use(limiter);
+} else {
+    // In development, use more relaxed rate limiting
+    const devLimiter = rateLimit({
+        windowMs: 15 * 60 * 1000, // 15 minutes
+        max: 1000, // Much higher limit for development
+        skip: (req) => {
+            // Skip rate limiting for localhost
+            return req.ip === '127.0.0.1' || req.ip === '::1' || req.ip === '::ffff:127.0.0.1';
+        },
         standardHeaders: true,
         legacyHeaders: false,
     });
-    app.use(limiter);
+    app.use(devLimiter);
 }
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// API Routes - temporarily commented out for debugging
-// app.use('/api/chat', chatRoutes);
-// app.use('/api/admin', adminRoutes);
-// app.use('/api/knowledge', knowledgeRoutes);
+// Note: Static file serving removed - frontend deployed separately on Firebase Hosting
+
+// API Routes
+app.use('/api/chat', chatRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/knowledge', knowledgeRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -61,31 +88,26 @@ app.get('/api/health', (req, res) => {
         status: 'OK', 
         timestamp: new Date().toISOString(),
         environment: process.env.NODE_ENV,
-        port: PORT,
-        message: 'Basic server running - routes temporarily disabled for debugging'
+        port: PORT
     });
 });
 
 // Debug endpoint for environment variables
 app.get('/api/debug/env', (req, res) => {
     res.json({
-        GOOGLE_CLOUD_API_KEY: process.env.GOOGLE_CLOUD_API_KEY ? 'SET' : 'NOT_SET',
+        DOCUMENT_AI_PROJECT_ID: process.env.DOCUMENT_AI_PROJECT_ID,
+        DOCUMENT_AI_LOCATION: process.env.DOCUMENT_AI_LOCATION,
+        DOCUMENT_AI_PROCESSOR_ID: process.env.DOCUMENT_AI_PROCESSOR_ID,
         FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID,
+        GOOGLE_APPLICATION_CREDENTIALS: process.env.GOOGLE_APPLICATION_CREDENTIALS,
         GEMINI_MODEL: process.env.GEMINI_MODEL,
         NODE_ENV: process.env.NODE_ENV,
         PORT: PORT,
-        ELEVENLABS_API_KEY: process.env.ELEVENLABS_API_KEY ? 'SET' : 'NOT_SET',
         timestamp: new Date().toISOString()
     });
 });
 
-// Test endpoint
-app.get('/api/test', (req, res) => {
-    res.json({
-        message: 'Server is working!',
-        timestamp: new Date().toISOString()
-    });
-});
+// Note: Frontend routing removed - handled by Firebase Hosting
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -102,9 +124,9 @@ app.use('*', (req, res) => {
 });
 
 app.listen(PORT, '0.0.0.0', () => {
-    console.log('Ì∫Ä Papillon Hotels AI Server running on port ' + PORT);
-    console.log('Ìºç Environment: ' + process.env.NODE_ENV);
-    console.log('Ì¥ñ Gemini Model: ' + process.env.GEMINI_MODEL);
-    console.log('Ì≥± Server accessible on all network interfaces (0.0.0.0:' + PORT + ')');
-    console.log('‚ö†Ô∏è Routes temporarily disabled for debugging');
+    console.log(`üöÄ Papillon Hotels AI Server running on port ${PORT}`);
+    console.log(`üåç Environment: ${process.env.NODE_ENV}`);
+    console.log(`ü§ñ Gemini Model: ${process.env.GEMINI_MODEL}`);
+    console.log(`üîß Document AI Project: ${process.env.DOCUMENT_AI_PROJECT_ID}`);
+    console.log(`üì± Server accessible on all network interfaces (0.0.0.0:${PORT})`);
 });
