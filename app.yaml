@@ -1,0 +1,41 @@
+# Google Cloud Run configuration
+service: papillon-backend
+runtime: custom
+env: standard
+
+env_variables:
+  NODE_ENV: production
+  GOOGLE_CLOUD_API_KEY: AIzaSyBiqxFAooCoJX1y-_IgDbVAtoaZ2SVKmxk
+  FIREBASE_PROJECT_ID: gen-lang-client-0930707875
+  FIREBASE_CLIENT_EMAIL: firebase-adminsdk-fbsvc@gen-lang-client-0930707875.iam.gserviceaccount.com
+  DOCUMENT_AI_PROJECT_ID: gen-lang-client-0930707875
+  DOCUMENT_AI_LOCATION: us
+  DOCUMENT_AI_PROCESSOR_ID: fe5f1775f1ca2990
+  GEMINI_MODEL: gemini-2.0-flash-exp
+  SUPPORTED_LANGUAGES: tr,en,de,ru
+  SUPPORTED_HOTELS: Belvil,Zeugma,Ayscha
+
+# Resources
+automatic_scaling:
+  min_instances: 0
+  max_instances: 10
+
+resources:
+  cpu: 1
+  memory_gb: 1
+
+# Health check
+readiness_check:
+  path: "/api/health"
+  check_interval_sec: 5
+  timeout_sec: 4
+  failure_threshold: 2
+  success_threshold: 2
+  app_start_timeout_sec: 300
+
+liveness_check:
+  path: "/api/health"
+  check_interval_sec: 30
+  timeout_sec: 4
+  failure_threshold: 2
+  success_threshold: 2 

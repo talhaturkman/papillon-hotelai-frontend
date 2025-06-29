@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Hotspot Test - Papillon AI</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-align: center;
+        }
+        .container {
+            background: rgba(255,255,255,0.1);
+            padding: 30px;
+            border-radius: 15px;
+            margin: 20px auto;
+            max-width: 400px;
+        }
+        .success {
+            font-size: 24px;
+            margin: 20px 0;
+        }
+        .info {
+            background: rgba(255,255,255,0.2);
+            padding: 15px;
+            border-radius: 10px;
+            margin: 10px 0;
+        }
+        button {
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>��� Hotspot Test Başarılı!</h1>
+        <div class="success">✅ Telefon bağlantısı çalışıyor!</div>
+        
+        <div class="info">
+            <h3>��� Ağ Bilgileri:</h3>
+            <p><strong>Hotspot IP:</strong> 192.168.137.1</p>
+            <p><strong>Telefon IP:</strong> 192.168.137.234</p>
+            <p><strong>Ağ:</strong> hotelai</p>
+        </div>
+        
+        <div class="info">
+            <h3>��� Test:</h3>
+            <button onclick="testBackend()">Backend Test</button>
+            <button onclick="testMain()">Ana Uygulamaya Git</button>
+        </div>
+        
+        <div id="result" style="margin-top: 20px;">
+            <div style="background: rgba(0,255,0,0.2); padding: 10px; border-radius: 5px;">
+                ��� Bu sayfayı görüyorsanız hotspot bağlantısı çalışıyor!
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function testBackend() {
+            fetch('http://192.168.137.1:5002/api/health')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('result').innerHTML = 
+                        '<div style="background: rgba(0,255,0,0.2); padding: 10px; border-radius: 5px;">' +
+                        '✅ Backend Çalışıyor: ' + data.status +
+                        '</div>';
+                })
+                .catch(error => {
+                    document.getElementById('result').innerHTML = 
+                        '<div style="background: rgba(255,0,0,0.2); padding: 10px; border-radius: 5px;">' +
+                        '❌ Backend Hatası: ' + error.message +
+                        '</div>';
+                });
+        }
+
+        function testMain() {
+            window.location.href = 'http://192.168.137.1:3000';
+        }
+    </script>
+</body>
+</html>

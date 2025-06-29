@@ -1,0 +1,15 @@
+Papillon Hotels Test Document
+
+This is a simple test document for Document AI.
+
+Belvil Hotel Information:
+- Location: Antalya, Turkey
+- Rooms: 300
+- Amenities: Pool, Spa, Restaurant
+
+Zeugma Hotel Information:  
+- Location: Belek, Turkey
+- Rooms: 250
+- Amenities: Beach, Golf, Fitness
+
+This is a test to verify Document AI processing works correctly. 
