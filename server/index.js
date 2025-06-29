@@ -4,10 +4,10 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
-// Import routes
-const chatRoutes = require('./routes/chat');
-const adminRoutes = require('./routes/admin');
-const knowledgeRoutes = require('./routes/knowledge');
+// Import routes - temporarily commented out for debugging
+// const chatRoutes = require('./routes/chat');
+// const adminRoutes = require('./routes/admin');
+// const knowledgeRoutes = require('./routes/knowledge');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -37,8 +37,7 @@ app.use(cors({
         'http://192.168.137.1:5173',
         /^https?:\/\/192\.168\.\d+\.\d+:(3000|3001|5173|63659)$/,
         'https://gen-lang-client-0930707875.web.app',
-        'https://ai.talhaturkman.com',
-        'https://papillonai-backend.loca.lt'
+        'https://ai.talhaturkman.com'
     ],
     credentials: true
 }));
@@ -46,7 +45,7 @@ app.use(cors({
 // Rate limiting
 if (process.env.NODE_ENV === 'production') {
     const limiter = rateLimit({
-        windowMs: 15 * 60 * 1000, // 15 minutes
+        windowMs: 15 * 60 * 1000,
         max: 100,
         message: { error: 'Too many requests from this IP, please try again later.' },
         standardHeaders: true,
@@ -70,10 +69,10 @@ if (process.env.NODE_ENV === 'production') {
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// API Routes
-app.use('/api/chat', chatRoutes);
-app.use('/api/admin', adminRoutes);
-app.use('/api/knowledge', knowledgeRoutes);
+// API Routes - temporarily commented out for debugging
+// app.use('/api/chat', chatRoutes);
+// app.use('/api/admin', adminRoutes);
+// app.use('/api/knowledge', knowledgeRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -81,7 +80,8 @@ app.get('/api/health', (req, res) => {
         status: 'OK', 
         timestamp: new Date().toISOString(),
         environment: process.env.NODE_ENV,
-        port: PORT
+        port: PORT,
+        message: 'Basic server running - routes temporarily disabled for debugging'
     });
 });
 
@@ -118,6 +118,6 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Papillon Hotels AI Server running on port ${PORT}`);
     console.log(`🌍 Environment: ${process.env.NODE_ENV}`);
     console.log(`🤖 Gemini Model: ${process.env.GEMINI_MODEL}`);
-    console.log(`🔧 Document AI Project: ${process.env.DOCUMENT_AI_PROJECT_ID}`);
     console.log(`📱 Server accessible on all network interfaces (0.0.0.0:${PORT})`);
+    console.log(`⚠️ Routes temporarily disabled for debugging`);
 });
