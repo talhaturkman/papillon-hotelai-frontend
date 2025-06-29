@@ -134,6 +134,13 @@ router.post('/message', async (req, res) => {
             { role: 'user', content: message }
         ];
 
+        // DEBUG LOG: Gemini'ya giden prompt ve context
+        console.log('🧠 Gemini Prompt Debug:', {
+            messages,
+            context: combinedContext,
+            detectedLanguage
+        });
+
         const aiResult = await geminiService.generateResponse(messages, combinedContext || null, detectedLanguage);
 
         if (!aiResult.success) {

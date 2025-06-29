@@ -173,7 +173,8 @@ Beantworten Sie die Fragen der Gäste natürlich. Fragen Sie nur nach dem Hotel,
                 generationConfig: {
                     temperature: 0.7,
                     maxOutputTokens: 1024,
-                }
+                },
+                responseMimeType: "text/plain"
             };
 
             const response = await axios.post(
