@@ -2,11 +2,20 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-const axios = require('axios');
+const axios = require('axios'); // For Gemini API
 require('dotenv').config();
 
 // Import Firebase service
 const firebaseService = require('./services/firebase');
+
+// Import routes - with error handling
+let chatRoutes = null;
+try {
+    chatRoutes = require('./routes/chat');
+    console.log('âœ… Chat routes loaded successfully');
+} catch (error) {
+    console.warn('âš ï¸ Chat routes failed to load:', error.message);
+}
 
 // Import admin routes with error handling
 let adminRoutes = null;
@@ -20,14 +29,14 @@ try {
 const app = express();
 const PORT = process.env.PORT || 8080;
 
-console.log('íº€ Starting COMPLETE Papillon Hotels AI Server...');
+console.log('ï¿½ï¿½ï¿½ Starting backend server with Gemini AI + Firebase + Admin integration...');
 
 // Initialize Firebase
 firebaseService.initialize().catch(err => {
     console.warn('âš ï¸ Firebase initialization failed, continuing without Firebase:', err.message);
 });
 
-// Trust proxy settings
+// Trust proxy settings for proper IP detection
 app.set('trust proxy', process.env.NODE_ENV === 'production' ? 1 : false);
 
 // Security middleware
@@ -163,10 +172,12 @@ app.post('/api/chat/message', async (req, res) => {
             return res.status(400).json({ error: 'Message is required' });
         }
 
+        // Generate session ID if not provided
         const currentSessionId = sessionId || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-        console.log(`í²¬ Chat message received: "${message}"`);
+        console.log(`ï¿½ï¿½ï¿½ Chat message received: "${message}"`);
 
+        // Call Gemini AI
         const messages = [
             ...chatHistory,
             { role: 'user', content: message }
@@ -176,7 +187,7 @@ app.post('/api/chat/message', async (req, res) => {
 
         let finalResponse;
         if (aiResult.success) {
-            console.log(`í´– AI response generated successfully`);
+            console.log(`ï¿½ï¿½ï¿½ AI response generated successfully`);
             finalResponse = aiResult.response;
         } else {
             console.log(`âš ï¸ Using fallback response due to AI error`);
@@ -202,6 +213,7 @@ app.post('/api/chat/message', async (req, res) => {
             }
         } catch (firebaseError) {
             console.warn('âš ï¸ Failed to store chat log:', firebaseError.message);
+            // Don't fail the request if Firebase fails
         }
 
         res.json({
@@ -228,78 +240,6 @@ if (adminRoutes) {
     console.log('âš ï¸ Admin routes not available');
 }
 
-// Voice/TTS endpoint using ElevenLabs
-app.post('/api/voice/synthesize', async (req, res) => {
-    try {
-        const { text, language = 'tr', gender = 'female' } = req.body;
-
-        if (!text || !text.trim()) {
-            return res.status(400).json({ 
-                success: false, 
-                error: 'Text is required' 
-            });
-        }
-
-        // Limit text length for TTS
-        const maxLength = 500;
-        const textToSynthesize = text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
-
-        console.log(`í¾™ï¸ TTS request: "${textToSynthesize}" (${language}, ${gender})`);
-
-        // Import ElevenLabs service
-        const elevenlabs = require('./services/elevenlabs');
-
-        // Generate speech
-        const audioBuffer = await elevenlabs.generateSpeech(textToSynthesize, language, gender);
-
-        if (!audioBuffer) {
-            throw new Error('No audio buffer returned from TTS service');
-        }
-
-        // Set appropriate headers for audio response
-        res.set({
-            'Content-Type': 'audio/mpeg',
-            'Content-Length': audioBuffer.length,
-            'Cache-Control': 'public, max-age=3600',
-            'Access-Control-Allow-Origin': '*'
-        });
-
-        console.log(`âœ… TTS successful: ${audioBuffer.length} bytes`);
-        res.send(audioBuffer);
-
-    } catch (error) {
-        console.error('âŒ TTS Error:', error.message);
-        
-        res.status(500).json({
-            success: false,
-            error: 'Voice synthesis failed',
-            message: error.message,
-            fallback: 'Ses sentezi ÅŸu anda kullanÄ±lamÄ±yor. API key kontrolÃ¼ gerekebilir.'
-        });
-    }
-});
-
-// Test TTS endpoint
-app.get('/api/voice/test', async (req, res) => {
-    try {
-        const elevenlabs = require('./services/elevenlabs');
-        
-        // Test API key validity
-        const testResult = await elevenlabs.testApiKey();
-        
-        res.json({
-            success: true,
-            elevenlabs: testResult,
-            message: 'Voice service test completed'
-        });
-    } catch (error) {
-        res.status(500).json({
-            success: false,
-            error: error.message
-        });
-    }
-});
-
 // Health check endpoint
 app.get('/api/health', (req, res) => {
     res.json({ 
@@ -307,10 +247,9 @@ app.get('/api/health', (req, res) => {
         timestamp: new Date().toISOString(),
         environment: process.env.NODE_ENV,
         port: PORT,
-        message: 'COMPLETE Papillon Hotels AI Server - All Features Active',
+        message: 'Backend server with Gemini AI + Firebase + Admin integration',
         firebase: firebaseService.isInitialized ? 'Connected' : 'Disabled',
-        adminRoutes: adminRoutes ? 'Loaded' : 'Disabled',
-        voiceFeatures: 'Enabled'
+        adminRoutes: adminRoutes ? 'Loaded' : 'Disabled'
     });
 });
 
@@ -328,23 +267,14 @@ app.get('/api/debug/env', (req, res) => {
         PORT: PORT,
         timestamp: new Date().toISOString(),
         firebase_initialized: firebaseService.isInitialized,
-        admin_routes_loaded: adminRoutes ? true : false,
-        voice_features: 'enabled'
+        admin_routes_loaded: adminRoutes ? true : false
     });
 });
 
 // Test endpoint
 app.get('/api/test', (req, res) => {
     res.json({
-        message: 'COMPLETE Papillon Hotels AI Server - All Features Active!',
-        features: [
-            'Gemini AI Chat âœ…',
-            'Firebase Integration âœ…', 
-            'Admin Panel âœ…',
-            'Voice Synthesis âœ…',
-            'Knowledge Base âœ…',
-            'Analytics âœ…'
-        ],
+        message: 'Backend server with Gemini AI + Firebase + Admin integration is working!',
         timestamp: new Date().toISOString()
     });
 });
@@ -364,15 +294,12 @@ app.use('*', (req, res) => {
 });
 
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`íº€ COMPLETE Papillon Hotels AI Server running on port ${PORT}`);
-    console.log(`í¼ Environment: ${process.env.NODE_ENV}`);
-    console.log(`í´– Gemini AI Model: ${process.env.GEMINI_MODEL}`);
-    console.log(`í´¥ Firebase: ${firebaseService.isInitialized ? 'Connected' : 'Disabled'}`);
-    console.log(`í±¨â€í²¼ Admin Panel: ${adminRoutes ? 'Enabled' : 'Disabled'}`);
-    console.log(`í¾™ï¸ Voice Features: Enabled (ElevenLabs TTS)`);
-    console.log(`í²¬ AI chat endpoint active at /api/chat/message`);
-    console.log(`í³Š Admin panel available at /api/admin/*`);
-    console.log(`í¾µ Voice synthesis available at /api/voice/synthesize`);
-    console.log(`í³± Server accessible on all network interfaces (0.0.0.0:${PORT})`);
-    console.log(`âœ¨ ALL FEATURES ACTIVE: Chat + Firebase + Admin + Voice âœ¨`);
+    console.log(`ï¿½ï¿½ï¿½ Papillon Hotels AI Server running on port ${PORT}`);
+    console.log(`ï¿½ï¿½ï¿½ Environment: ${process.env.NODE_ENV}`);
+    console.log(`ï¿½ï¿½ï¿½ Gemini AI Model: ${process.env.GEMINI_MODEL}`);
+    console.log(`ï¿½ï¿½ï¿½ Firebase: ${firebaseService.isInitialized ? 'Connected' : 'Disabled'}`);
+    console.log(`ï¿½ï¿½ï¿½â€ï¿½ï¿½ï¿½ Admin Panel: ${adminRoutes ? 'Enabled' : 'Disabled'}`);
+    console.log(`ï¿½ï¿½ï¿½ AI chat endpoint active at /api/chat/message`);
+    console.log(`ï¿½ï¿½ï¿½ Admin panel available at /api/admin/*`);
+    console.log(`ï¿½ï¿½ï¿½ Server accessible on all network interfaces (0.0.0.0:${PORT})`);
 });
