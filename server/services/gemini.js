@@ -6,7 +6,7 @@ class GeminiService {
         this.model = process.env.GEMINI_MODEL || 'gemini-2.0-flash-preview-image-generation';
         this.apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent`;
         
-        console.log(`��� Gemini API initialized: ${this.model} (IMAGE-GEN-COMPATIBLE)`);
+        console.log(`��� Gemini API initialized: ${this.model} (ULTRA-MINIMAL)`);
         if (!this.apiKey) {
             console.error('❌ GEMINI_API_KEY not found in environment variables');
         } else {
@@ -16,72 +16,16 @@ class GeminiService {
 
     async generateResponse(messages, knowledgeContext = null, detectedLanguage = 'tr') {
         try {
-            // Language-specific system prompts
-            const systemPrompts = {
-                'tr': `Sen Papillon Hotels'in yapay zeka asistanısın. Papillon Hotels'un 3 oteli var: Belvil, Zeugma ve Ayscha. 
+            // Simple system prompt
+            const systemPrompt = `Sen Papillon Hotels'in yapay zeka asistanısın. Papillon Hotels'un 3 oteli var: Belvil, Zeugma ve Ayscha. 
 
-ÖNEMLİ: SADECE TÜRKÇE YANIT VER!
+SADECE TÜRKÇE YANIT VER! Kısa ve net yanıtlar ver.
 
-OTEL TESPİTİ VE BİLGİ PAYLAŞIMI:
-- Eğer soru GENEL nitelikte ise (selam, nasılsın, teşekkür vb.) direkt yanıtla, otel sorma
-- Eğer soru KİŞİSEL/GENEL ise (personel tanıma, genel sohbet) direkt yanıtla, otel sorma  
-- Eğer soru OTEL-SPESİFİK ise (odalar, restoranlar, aktiviteler, spa, pool vb.) VE otel belirtilmemişse, o zaman sor: "Bu bilgiyi size doğru şekilde verebilmem için hangi Papillon otelinde konaklamaktasınız? Belvil, Zeugma yoksa Ayscha?"
-- Eğer zaten otel context'i varsa, direkt bilgi ver
-
-YANITLAMA KURALLARI:
-- Yanıtlarını düzenli ve okunaklı şekilde formatla
-- Önemli bilgileri **kalın** yap
-- Başlıklar için ### kullan
-- Liste için - kullan
-- Sayılı liste için 1. 2. 3. kullan
-- Karmaşık bilgileri kategorilere ayır
-- Kısa ve net yanıtlar ver
-
-KONUM BİLGİLERİ:
-- Konum bazlı sorularda otelin yakınındaki yerleri öner
-- Mesafe, adres, çalışma saatleri gibi detayları paylaş
-- Misafirlere yol tarifi ve ulaşım önerileri ver
-- Popüler ve güvenilir yerları öne çıkar
-
-Misafirlerin sorularını doğal şekilde yanıtla. Sadece otel-spesifik bilgi gerektiğinde otel sor. TÜM YANITLARIN TÜRKÇE OLMALI.`,
-
-                'en': `You are the AI assistant for Papillon Hotels. Papillon Hotels has 3 properties: Belvil, Zeugma and Ayscha.
-
-IMPORTANT: RESPOND ONLY IN ENGLISH!
-
-HOTEL IDENTIFICATION AND INFORMATION SHARING:
-- If the question is GENERAL (greetings, how are you, thanks etc.) respond directly, don't ask about hotel
-- If the question is PERSONAL/GENERAL (staff recognition, general chat) respond directly, don't ask about hotel
-- If the question is HOTEL-SPECIFIC (rooms, restaurants, activities, spa, pools etc.) AND no hotel is specified, then ask: "To provide you with accurate information, which Papillon hotel are you staying at? Belvil, Zeugma, or Ayscha?"
-- If hotel context is already available, provide information directly
-
-RESPONSE RULES:
-- Format your responses in a clean and readable way
-- Make important information **bold**
-- Use ### for headers
-- Use - for lists
-- Use 1. 2. 3. for numbered lists
-- Categorize complex information
-- Give concise and clear answers
-
-LOCATION INFORMATION:
-- For location-based questions, suggest nearby places to the hotel
-- Share details like distance, address, opening hours
-- Provide directions and transportation suggestions to guests
-- Highlight popular and reliable places
-
-Answer guests' questions naturally. Only ask about hotel when hotel-specific information is needed. ALL RESPONSES MUST BE IN ENGLISH.`
-            };
-
-            let systemPrompt = systemPrompts[detectedLanguage] || systemPrompts['tr'];
+Eğer otel-spesifik soru sorulursa ve otel belirtilmemişse şunu sor: "Bu bilgiyi size doğru şekilde verebilmem için hangi Papillon otelinde konaklamaktasınız? Belvil, Zeugma yoksa Ayscha?"`;
             
-            console.log(`��� Using ${detectedLanguage} system prompt for Gemini (IMAGE-GEN-COMPATIBLE)`);
+            console.log(`��� Using minimal system prompt for Gemini (ULTRA-MINIMAL)`);
             
-            // Add knowledge context if available
-            if (knowledgeContext && knowledgeContext.trim().length > 0) {
-                systemPrompt += `\n\nAşağıdaki bilgileri kullanarak sorulara detaylı yanıt ver:\n\n${knowledgeContext}`;
-            }
-
+            // Ultra minimal conversation history
             let conversationHistory = [
                 {
                     role: "user",
@@ -93,33 +37,21 @@ Answer guests' questions naturally. Only ask about hotel when hotel-specific inf
                 }
             ];
 
-            messages.forEach(message => {
+            // Add only the last user message
+            if (messages && messages.length > 0) {
+                const lastMessage = messages[messages.length - 1];
                 conversationHistory.push({
-                    role: message.role === 'user' ? 'user' : 'model',
-                    parts: [{ text: message.content }]
+                    role: lastMessage.role === 'user' ? 'user' : 'model',
+                    parts: [{ text: lastMessage.content }]
                 });
-            });
+            }
 
-            // IMAGE GENERATION MODEL COMPATIBLE CONFIGURATION
+            // ABSOLUTELY MINIMAL CONFIGURATION - Only required fields
             const requestData = {
                 contents: conversationHistory,
                 generationConfig: {
                     temperature: 0.7,
-                    maxOutputTokens: 1024,
-                    topP: 0.8,
-                    topK: 40,
-                    candidateCount: 1
-                },
-                // Image generation model specifically requires IMAGE,TEXT order
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: "object",
-                    properties: {
-                        text_response: {
-                            type: "string"
-                        }
-                    },
-                    required: ["text_response"]
+                    maxOutputTokens: 512
                 }
             };
 
@@ -130,22 +62,13 @@ Answer guests' questions naturally. Only ask about hotel when hotel-specific inf
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    timeout: 45000
+                    timeout: 30000
                 }
             );
 
             if (response.data && response.data.candidates && response.data.candidates[0]) {
-                let aiResponse;
-                try {
-                    // Try to parse structured response
-                    const structuredResponse = JSON.parse(response.data.candidates[0].content.parts[0].text);
-                    aiResponse = structuredResponse.text_response || response.data.candidates[0].content.parts[0].text;
-                } catch (e) {
-                    // Fallback to plain text
-                    aiResponse = response.data.candidates[0].content.parts[0].text;
-                }
-                
-                console.log(`✅ Gemini API Success (IMAGE-GEN-COMPATIBLE): Response length ${aiResponse.length} chars`);
+                const aiResponse = response.data.candidates[0].content.parts[0].text;
+                console.log(`✅ Gemini API Success (ULTRA-MINIMAL): Response length ${aiResponse.length} chars`);
                 return {
                     success: true,
                     response: aiResponse
