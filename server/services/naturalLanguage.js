@@ -1,4 +1,6 @@
 const axios = require('axios');
+const { LanguageServiceClient } = require('@google-cloud/language');
+const language = new LanguageServiceClient();
 
 class NaturalLanguageService {
     constructor() {
@@ -76,84 +78,21 @@ class NaturalLanguageService {
     // Detect language using Google Cloud Natural Language API
     async detectLanguage(text) {
         try {
-            if (!text || text.trim().length === 0) {
-                return 'tr'; // Default to Turkish
-            }
-
-            // ÖNCE FALLBACK'İ DENE - daha güvenilir
-            const fallbackResult = this.detectLanguageFallback(text);
-            
-            // Türkçe karakterler varsa kesinlikle Türkçe
-            if (/[çğıöşüÇĞIİÖŞÜ]/.test(text)) {
-                console.log(`🇹🇷 Turkish characters detected, using TR (instead of API)`);
-                return 'tr';
-            }
-            
-            // Net Türkçe kelimeler varsa Türkçe
-            if (/\b(ben|de|da|kalıyorum|istiyorum|nedir|nasıl|hakkında|bilgi)\b/i.test(text)) {
-                console.log(`🇹🇷 Turkish words detected, using TR (instead of API)`);
-                return 'tr';
-            }
-            
-            // Net İngilizce kelimeler varsa İngilizce
-            if (/\b(need|information|staying|hotel|english|restaurant|hello|please|want)\b/i.test(text)) {
-                console.log(`🇺🇸 English words detected, using EN (instead of API)`);
-                return 'en';
-            }
-
-            // Eğer fallback güçlü sonuç verdiyse onu kullan
-            if (fallbackResult !== 'en' || text.length < 20) {
-                console.log(`🔍 Using fallback result: ${fallbackResult} (skipping Google API)`);
-                return fallbackResult;
-            }
-
-            // Sadece belirsiz durumlarda Google API'yi kullan
-            const requestData = {
-                document: {
-                    type: 'PLAIN_TEXT',
-                    content: text
-                }
+            const document = {
+                content: text,
+                type: 'PLAIN_TEXT',
             };
 
-            const response = await axios.post(
-                `${this.baseUrl}/documents:detectLanguage?key=${this.apiKey}`,
-                requestData,
-                {
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    timeout: 5000
-                }
-            );
+            // Use the correct language detection method
+            const [result] = await language.detectLanguage({ document });
+            console.log(`Language detection result: ${JSON.stringify(result.languages)}`);
 
-            if (response.data && response.data.languages && response.data.languages.length > 0) {
-                const detectedLang = response.data.languages[0].language;
-                const confidence = response.data.languages[0].confidence;
-                
-                console.log(`🌐 Google API detected: ${detectedLang} (confidence: ${confidence.toFixed(2)})`);
-                
-                // Map Google language codes to our supported languages
-                const languageMap = {
-                    'tr': 'tr',
-                    'en': 'en', 
-                    'de': 'de',
-                    'ru': 'ru',
-                    'es': 'en', // Spanish → English fallback
-                    'fr': 'en', // French → English fallback
-                    'it': 'en', // Italian → English fallback
-                };
-                
-                return languageMap[detectedLang] || 'en'; // Default to English if unknown
-            }
-            
-            console.log('⚠️ No language detected, using fallback result:', fallbackResult);
-            return fallbackResult;
-            
+            // Return the detected languages, sorted by confidence
+            return result.languages.sort((a, b) => b.confidence - a.confidence);
         } catch (error) {
-            console.warn('⚠️ Natural Language API error:', error.response?.data?.error?.message || error.message);
-            
-            // Fallback to regex pattern matching
-            return this.detectLanguageFallback(text);
+            console.error('ERROR in detectLanguage:', error);
+            // Return a default or empty array in case of an error
+            return [];
         }
     }
 

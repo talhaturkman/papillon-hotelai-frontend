@@ -22,22 +22,22 @@ class GeminiService {
             if (knowledgeContext && knowledgeContext.trim().length > 0) {
                 // Scenario 1: We HAVE knowledge context. Force the AI to use it and only it.
                 const contextPrompts = {
-                    'tr': `Sen bir otel asistanısın. Kullanıcının sorusunu SADECE ve SADECE aşağıdaki Bilgi Metni'ni kullanarak yanıtla. Bu metnin dışına asla çıkma. Eğer cevap metinde yoksa, "Bu konuda detaylı bilgim bulunmuyor." de. Kullanıcıya ASLA hangi otelde olduğunu sorma, çünkü sana verilen bilgi zaten doğru otele aittir. Yanıtın mutlaka TÜRKÇE olmalı.
+                    'tr': `Sen bir otel asistanısın. Kullanıcının sorusunu SADECE ve SADECE aşağıdaki Bilgi Metni'ni kullanarak yanıtla. Bu metnin dışına asla çıkma. Eğer cevap metinde yoksa, "Bu konuda detaylı bilgim bulunmuyor." de. Kullanıcıya ASLA hangi otelde olduğunu sorma, çünkü sana verilen bilgi zaten doğru otele aittir. Yanıtın mutlaka TÜRKÇE olmalı. KULLANICI BİR İNSAN, TEMSİLCİ VEYA CANLI DESTEK İLE GÖRÜŞMEK İSTERSE, BAŞKA HİÇBİR ŞEY YAZMADAN SADECE VE SADECE ŞUNU YAZ: [DESTEK_TALEBI]
 
 ### Bilgi Metni ###
 ${knowledgeContext}
 ### Bilgi Metni Sonu ###`,
-                    'en': `You are a hotel assistant. Answer the user's question using ONLY the Information Text below. Never go outside of this text. If the answer is not in the text, say "I don't have detailed information on this topic." NEVER ask the user which hotel they are at, because the information provided is for the correct hotel. Your response must be in ENGLISH.
+                    'en': `You are a hotel assistant. Answer the user's question using ONLY the Information Text below. Never go outside of this text. If the answer is not in the text, say "I don't have detailed information on this topic." NEVER ask the user which hotel they are at, because the information provided is for the correct hotel. Your response must be in ENGLISH. IF THE USER WANTS TO SPEAK TO A HUMAN, AGENT, OR LIVE SUPPORT, RESPOND ONLY WITH THE FOLLOWING AND NOTHING ELSE: [DESTEK_TALEBI]
 
 ### Information Text ###
 ${knowledgeContext}
 ### End of Information Text ###`,
-                    'de': `Sie sind ein Hotelassistent. Beantworten Sie die Frage des Benutzers NUR mit dem unten stehenden Informationstext. Verlassen Sie diesen Text niemals. Wenn die Antwort nicht im Text enthalten ist, sagen Sie "Ich habe keine detaillierten Informationen zu diesem Thema." Fragen Sie den Benutzer NIEMALS, in welchem Hotel er sich befindet, da die bereitgestellten Informationen für das richtige Hotel gelten. Ihre Antwort muss auf DEUTSCH sein.
+                    'de': `Sie sind ein Hotelassistent. Beantworten Sie die Frage des Benutzers NUR mit dem unten stehenden Informationstext. Verlassen Sie diesen Text niemals. Wenn die Antwort nicht im Text enthalten ist, sagen Sie "Ich habe keine detaillierten Informationen zu diesem Thema." Fragen Sie den Benutzer NIEMALS, in welchem Hotel er sich befindet, da die bereitgestellten Informationen für das richtige Hotel gelten. Ihre Antwort muss auf DEUTSCH sein. WENN DER BENUTZER MIT EINEM MENSCHEN, MITARBEITER ODER DEM LIVE-SUPPORT SPRECHEN MÖCHTE, ANTWORTEN SIE AUSSCHLIESSLICH MIT FOLGENDEM: [DESTEK_TALEBI]
 
 ### Informationstext ###
 ${knowledgeContext}
 ### Ende des Informationstextes ###`,
-                    'ru': `Вы гостиничный ассистент. Отвечайте на вопрос пользователя, используя ТОЛЬКО приведенный ниже Информационный Текст. Никогда не выходите за рамки этого текста. Если ответа в тексте нет, скажите "У меня нет подробной информации по этому вопросу." НИКОГДА не спрашивайте пользователя, в каком отеле он находится, так как предоставленная информация относится к правильному отелю. Ваш ответ должен быть на РУССКОМ языке.
+                    'ru': `Вы гостиничный ассистент. Отвечайте на вопрос пользователя, используя ТОЛЬКО приведенный ниже Информационный Текст. Никогда не выходите за рамки этого текста. Если ответа в тексте нет, скажите "У меня нет подробной информации по этому вопросу." НИКОГДА не спрашивайте пользователя, в каком отеле он находится, так как предоставленная информация относится к правильному отелю. Ваш ответ должен быть на РУССКОМ языке. ЕСЛИ ПОЛЬЗОВАТЕЛЬ ХОЧЕТ ПОГОВОРИТЬ С ЧЕЛОВЕКОМ, АГЕНТОМ ИЛИ СЛУЖБОЙ ПОДДЕРЖКИ, ОТВЕЧАЙТЕ ТОЛЬКО СЛЕДУЮЩИМ ОБРАЗОМ: [DESTEK_TALEBI]
 
 ### Информационный Текст ###
 ${knowledgeContext}
@@ -47,40 +47,33 @@ ${knowledgeContext}
             } else {
                 // Scenario 2: We have NO knowledge context. Use the general prompt that is allowed to ask questions.
                 const generalPrompts = {
-                    'tr': `Sen Papillon Hotels'in yapay zeka asistanısın. Papillon Hotels'un 3 oteli var: Belvil, Zeugma ve Ayscha. Eğer kullanıcı otel-spesifik bir soru sorarsa (oda, restoran, aktivite vb.) ve hangi otelden bahsettiğini belirtmezse, ona hangi otelde konakladığını sor: "Size daha doğru bilgi verebilmem için hangi Papillon otelinde konakladığınızı öğrenebilir miyim: Belvil, Zeugma veya Ayscha?" Diğer durumlarda soruları doğrudan yanıtla. Yanıtların her zaman TÜRKÇE olmalı.`,
-                    'en': `You are the AI assistant for Papillon Hotels. Papillon Hotels has 3 properties: Belvil, Zeugma and Ayscha. If the user asks a hotel-specific question (e.g., about rooms, restaurants, activities) and does not specify which hotel they are talking about, ask them which hotel they are staying at: "To provide you with more accurate information, could you please let me know which Papillon hotel you are staying at: Belvil, Zeugma, or Ayscha?" Otherwise, answer the questions directly. Your responses must always be in ENGLISH.`,
-                    'de': `Sie sind der KI-Assistent für Papillon Hotels. Papillon Hotels hat 3 Häuser: Belvil, Zeugma und Ayscha. Wenn der Gast eine hotelspezifische Frage stellt (z. B. zu Zimmern, Restaurants, Aktivitäten) und nicht angibt, von welchem Hotel er spricht, fragen Sie ihn, in welchem Hotel er übernachtet: "Um Ihnen genauere Informationen geben zu können, könnten Sie mir bitte mitteilen, in welchem Papillon Hotel Sie übernachten: Belvil, Zeugma oder Ayscha?" Andernfalls beantworten Sie die Fragen direkt. Ihre Antworten müssen immer auf DEUTSCH sein.`,
-                    'ru': `Вы — AI-ассистент отелей Papillon. В сети Papillon 3 отеля: Belvil, Zeugma и Ayscha. Если гость задает вопрос, касающийся конкретного отеля (например, о номерах, ресторанах, мероприятиях), и не уточняет, о каком отеле идет речь, спросите его, в каком отеле он остановился: "Чтобы предоставить вам более точную информацию, не могли бы вы сообщить, в каком отеле Papillon вы остановились: Belvil, Zeugma или Ayscha?" В противном случае отвечайте на вопросы напрямую. Ваши ответы всегда должны быть на РУССКОМ языке.`
+                    'tr': `Sen Papillon Hotels'in yapay zeka asistanısın. Papillon Hotels'un 3 oteli var: Belvil, Zeugma ve Ayscha. Eğer kullanıcı otel-spesifik bir soru sorarsa (oda, restoran, aktivite vb.) ve hangi otelden bahsettiğini belirtmezse, ona hangi otelde konakladığını sor: "Size daha doğru bilgi verebilmem için hangi Papillon otelinde konakladığınızı öğrenebilir miyim: Belvil, Zeugma veya Ayscha?" Diğer durumlarda soruları doğrudan yanıtla. Yanıtların her zaman TÜRKÇE olmalı. KULLANICI BİR İNSAN, TEMSİLCİ VEYA CANLI DESTEK İLE GÖRÜŞMEK İSTERSE, BAŞKA HİÇBİR ŞEY YAZMADAN SADECE VE SADECE ŞUNU YAZ: [DESTEK_TALEBI]`,
+                    'en': `You are the AI assistant for Papillon Hotels. Papillon Hotels has 3 properties: Belvil, Zeugma and Ayscha. If the user asks a hotel-specific question (e.g., about rooms, restaurants, activities) and does not specify which hotel they are talking about, ask them which hotel they are staying at: "To provide you with more accurate information, could you please let me know which Papillon hotel you are staying at: Belvil, Zeugma, or Ayscha?" Otherwise, answer the questions directly. Your responses must always be in ENGLISH. IF THE USER WANTS TO SPEAK TO A HUMAN, AGENT, OR LIVE SUPPORT, RESPOND ONLY WITH THE FOLLOWING AND NOTHING ELSE: [DESTEK_TALEBI]`,
+                    'de': `Sie sind der KI-Assistent für Papillon Hotels. Papillon Hotels hat 3 Häuser: Belvil, Zeugma und Ayscha. Wenn der Gast eine hotelspezifische Frage stellt (z. B. zu Zimmern, Restaurants, Aktivitäten) und nicht angibt, von welchem Hotel er spricht, fragen Sie ihn, in welchem Hotel er übernachtet: "Um Ihnen genauere Informationen geben zu können, könnten Sie mir bitte mitteilen, in welchem Papillon Hotel Sie übernachten: Belvil, Zeugma oder Ayscha?" Andernfalls beantworten Sie die Fragen direkt. Ihre Antworten müssen immer auf DEUTSCH sein. WENN DER BENUTZER MIT EINEM MENSCHEN, MITARBEITER ODER DEM LIVE-SUPPORT SPRECHEN MÖCHTE, ANTWORTEN SIE AUSSCHLIESSLICH MIT FOLGENDEM: [DESTEK_TALEBI]`,
+                    'ru': `Вы — AI-ассистент отелей Papillon. В сети Papillon 3 отеля: Belvil, Zeugma и Ayscha. Если гость задает вопрос, касающийся конкретного отеля (например, о номерах, ресторанах, мероприятиях), и не уточняет, о каком отеле идет речь, спросите его, в каком отеле он остановился: "Чтобы предоставить вам более точную информацию, не могли бы вы сообщить, в каком отеле Papillon вы остановились: Belvil, Zeugma или Ayscha?" В противном случае отвечайте на вопросы напрямую. Ваши ответы всегда должны быть на РУССКОМ языке. ЕСЛИ ПОЛЬЗОВАТЕЛЬ ХОЧЕТ ПОГОВОРИТЬ С ЧЕЛОВЕКОМ, АГЕНТОМ ИЛИ СЛУЖБОЙ ПОДДЕРЖКИ, ОТВЕЧАЙТЕ ТОЛЬКО СЛЕДУЮЩИМ ОБРАЗОМ: [DESTEK_TALEBI]`
                 };
                 finalSystemPrompt = generalPrompts[detectedLanguage] || generalPrompts['tr'];
             }
 
-            // Language-specific initial model responses can be simplified or removed
-            const initialResponse = {
-                'tr': "Anladım, dinliyorum.",
-                'en': "Understood, I'm listening.",
-                'de': "Verstanden, ich höre zu.",
-                'ru': "Понял, я слушаю."
-            };
+            // Map the client-facing role names to the backend role names ('assistant' -> 'model')
+            const mappedMessages = messages.map(msg => ({
+                ...msg,
+                role: msg.role === 'assistant' ? 'model' : 'user'
+            }));
 
+            // Start the conversation with our system prompt, followed by the actual message history
             let conversationHistory = [
                 {
                     role: "user",
                     parts: [{ text: finalSystemPrompt }]
                 },
                 {
-                    role: "model", 
-                    parts: [{ text: initialResponse[detectedLanguage] || initialResponse['tr'] }]
-                }
+                    role: "model",
+                    parts: [{ text: this.getGreeting(detectedLanguage) }] // Prime the model
+                },
+                ...mappedMessages
             ];
-
-            messages.forEach(message => {
-                conversationHistory.push({
-                    role: message.role === 'user' ? 'user' : 'model',
-                    parts: [{ text: message.content }]
-                });
-            });
-
+            
             const requestData = {
                 contents: conversationHistory,
                 generationConfig: {
@@ -126,6 +119,17 @@ ${knowledgeContext}
                 error: 'AI service temporarily unavailable. Please try again.'
             };
         }
+    }
+
+    // New method to get a language-specific greeting
+    getGreeting(languageCode) {
+        const greetings = {
+            'tr': "Elbette, size nasıl yardımcı olabilirim?",
+            'en': "Of course, how can I help you?",
+            'de': "Natürlich, wie kann ich Ihnen helfen?",
+            'ru': "Конечно, чем я могу вам помочь?"
+        };
+        return greetings[languageCode] || greetings['tr'];
     }
 
     // This method will now delegate to the NaturalLanguageService
@@ -183,6 +187,27 @@ Hotel:`;
             // Fallback to simple extraction if AI fails
             return this.extractHotelName(message, chatHistory); 
         }
+    }
+
+    // Check if the user is asking for a human support agent
+    isSupportRequest(text) {
+        const textLower = text.toLowerCase();
+        const supportKeywords = [
+            // Turkish (more robust)
+            'destek', 'temsilci', 'operatör', 'insan', 'yardım', 'görevli', 'biriyle konuş',
+            // English (more robust)
+            'support', 'agent', 'operator', 'human', 'person', 'representative', 'service',
+            // German (more robust)
+            'support', 'hilfe', 'mitarbeiter', 'mensch', 'person',
+            // Russian (more robust)
+            'поддержк', // catches поддержка, поддержкой etc.
+            'помощь', 
+            'оператор', 
+            'человек',
+            'агент'
+        ];
+
+        return supportKeywords.some(keyword => textLower.includes(keyword));
     }
 
     // Extract hotel name from user message
@@ -269,6 +294,41 @@ Respond with ONLY: "YES" or "NO"`;
         } catch (error) {
             console.error('❌ AI location detection error:', error);
             return false;
+        }
+    }
+
+    async detectLanguage(message, history) {
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+
+        const historyText = history.map(h => `${h.role}: ${h.content}`).join('\n');
+
+        const prompt = `
+            Analyze the following message and conversation history to determine the primary language.
+            Respond with ONLY the two-letter ISO 639-1 code (e.g., "en", "tr", "de", "ru").
+            Do not provide any other explanation or text.
+
+            Conversation History:
+            ${historyText}
+
+            Latest Message: "${message}"
+        `;
+
+        try {
+            const result = await model.generateContent(prompt);
+            const response = await result.response;
+            const languageCode = response.text().trim().toLowerCase().substring(0, 2);
+            
+            const supportedLangs = ['en', 'tr', 'de', 'ru'];
+            if (supportedLangs.includes(languageCode)) {
+                console.log(`🌐 Gemini detected language: ${languageCode}`);
+                return languageCode;
+            }
+            
+            console.log(`⚠️ Detected unsupported language '${languageCode}', defaulting to 'tr'.`);
+            return 'tr'; // Default to Turkish if detection is unclear or unsupported
+        } catch (error) {
+            console.error("Error in Gemini language detection:", error);
+            return 'tr'; // Default to Turkish on error
         }
     }
 }

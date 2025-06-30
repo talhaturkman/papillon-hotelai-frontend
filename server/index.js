@@ -11,13 +11,14 @@ const adminRoutes = require('./routes/admin');
 const knowledgeRoutes = require('./routes/knowledge');
 
 const app = express();
-const PORT = process.env.PORT || 8080; // Cloud Run uses port 8080
+const PORT = process.env.PORT || 5002; // Cloud Run uses port 8080
 
 // Trust proxy settings for proper IP detection
 app.set('trust proxy', process.env.NODE_ENV === 'production' ? 1 : false);
 
 // Security middleware
 app.use(helmet());
+app.options('*', cors()); // Enable pre-flight requests for all routes
 app.use(cors({
     origin: process.env.NODE_ENV === 'production' ? [
         'https://ai.talhaturkman.com',           // Production frontend domain
@@ -27,6 +28,7 @@ app.use(cors({
     ] : [
         'http://localhost:3000', 
         'http://localhost:5173',
+        'http://192.168.203.16:3000',  // User's mobile hotspot IP - verified
         'http://192.168.4.151:3000',   // Ethernet IP - port 3000
         'http://192.168.4.151:5173',   // Ethernet IP - port 5173  
         'http://192.168.7.2:3000',     // Other IP - port 3000
@@ -84,6 +86,8 @@ if (process.env.NODE_ENV === 'production') {
 app.use('/api/chat', chatRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/knowledge', knowledgeRoutes);
+app.use('/api/analytics', require('./routes/analytics'));
+app.use('/api/support', require('./routes/support')); // Canlı Destek Rotası
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
