@@ -6,7 +6,7 @@ class GeminiService {
         this.model = process.env.GEMINI_MODEL || 'gemini-2.0-flash-preview-image-generation';
         this.apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent`;
         
-        console.log(`í´– Gemini API initialized: ${this.model} (IMAGE-GENERATION MODE)`);
+        console.log(`í´– Gemini API initialized: ${this.model} (FIXED)`);
         if (!this.apiKey) {
             console.error('âŒ GEMINI_API_KEY not found in environment variables');
         } else {
@@ -75,7 +75,7 @@ Answer guests' questions naturally. Only ask about hotel when hotel-specific inf
 
             let systemPrompt = systemPrompts[detectedLanguage] || systemPrompts['tr'];
             
-            console.log(`í¼ Using ${detectedLanguage} system prompt for Gemini (IMAGE-GENERATION)`);
+            console.log(`í¼ Using ${detectedLanguage} system prompt for Gemini (FIXED)`);
             
             // Add knowledge context if available
             if (knowledgeContext && knowledgeContext.trim().length > 0) {
@@ -100,7 +100,7 @@ Answer guests' questions naturally. Only ask about hotel when hotel-specific inf
                 });
             });
 
-            // IMAGE-GENERATION MODEL CONFIGURATION - Supports TEXT + IMAGE modalities
+            // MINIMAL CONFIGURATION - Only basic fields
             const requestData = {
                 contents: conversationHistory,
                 generationConfig: {
@@ -109,9 +109,7 @@ Answer guests' questions naturally. Only ask about hotel when hotel-specific inf
                     topP: 0.8,
                     topK: 40,
                     candidateCount: 1
-                },
-                // Image generation model requires both TEXT and IMAGE modalities
-                responseModality: ["TEXT", "IMAGE"]
+                }
             };
 
             const response = await axios.post(
@@ -127,7 +125,7 @@ Answer guests' questions naturally. Only ask about hotel when hotel-specific inf
 
             if (response.data && response.data.candidates && response.data.candidates[0]) {
                 const aiResponse = response.data.candidates[0].content.parts[0].text;
-                console.log(`âœ… Gemini API Success (IMAGE-GENERATION): Response length ${aiResponse.length} chars`);
+                console.log(`âœ… Gemini API Success (FIXED): Response length ${aiResponse.length} chars`);
                 return {
                     success: true,
                     response: aiResponse
