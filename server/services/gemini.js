@@ -2,26 +2,35 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 class GeminiService {
   constructor() {
+    // API Key validation
     this.apiKey = process.env.GEMINI_API_KEY;
     if (!this.apiKey) {
       throw new Error('GEMINI_API_KEY environment variable is missing');
     }
 
-    this.modelName = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+    // Choose model (override with env)
+    this.modelName = process.env.GEMINI_MODEL || 'gemini-2.0-flash-exp';
 
+    // Initialise official client
     this.genAI = new GoogleGenerativeAI(this.apiKey);
     this.model = this.genAI.getGenerativeModel({ model: this.modelName });
 
-    console.log(`��� [GeminiService] Initialised with model: ${this.modelName}`);
+    console.log(`🤖 [GeminiService] Initialised with model: ${this.modelName}`);
   }
 
+  /**
+   * Generate assistant response. Extra params kept for backward compatibility.
+   * @param {Array<{role: 'user'|'model', content: string}>} messages
+   */
   async generateResponse(messages = [], knowledgeContext = null, detectedLanguage = 'tr') {
     try {
+      // System prompt
       const systemPrompt =
         "Sen Papillon Hotels'in yapay zeka asistanısın. Papillon Hotels'in 3 oteli var: Belvil, Zeugma ve Ayscha.\n" +
         'SADECE TÜRKÇE yanıt ver. Kısa ve net cevapla.\n' +
-        'Otel belirtilmeden otel-spesifik soru gelirse "Hangi Papillon otelinde konaklamaktasınız? Belvil, Zeugma, Ayscha?" diye sor.';
+        'Otel belirtilmeden otel-spesifik soru gelirse: "Hangi Papillon otelinde konaklamaktasınız? Belvil, Zeugma, Ayscha?"';
 
+      // Build conversation
       const contents = [
         { role: 'user', parts: [{ text: systemPrompt }] },
         { role: 'model', parts: [{ text: 'Elbette, size yardımcı olmaya hazırım.' }] },
@@ -46,6 +55,7 @@ class GeminiService {
     }
   }
 
+  // --- Utility helpers (preserved) ---
   detectLanguage(text) {
     const trRegex = /[çğıöşüÇĞIİÖŞÜ]|\b(bir|ve|de|için|hakkında|nerede)\b/i;
     const enRegex = /\b(the|and|for|are|with|have|this|will|you|that|but|not|what|all|were|they|we)\b/i;
