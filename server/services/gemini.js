@@ -3,14 +3,14 @@ const axios = require('axios');
 class GeminiService {
     constructor() {
         this.apiKey = process.env.GEMINI_API_KEY;
-        this.model = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+        this.model = process.env.GEMINI_MODEL || 'gemini-2.0-flash-preview';
         this.apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent`;
         
-        console.log(`í´– Gemini API initialized: ${this.model} (TEXT-ONLY MODE)`);
+        console.log(`ï¿½ï¿½ï¿½ Gemini API initialized: ${this.model} (TEXT-ONLY MODE)`);
         if (!this.apiKey) {
             console.error('âŒ GEMINI_API_KEY not found in environment variables');
         } else {
-            console.log(`í´‘ API Key loaded: ${this.apiKey.substring(0, 10)}...`);
+            console.log(`ï¿½ï¿½ï¿½ API Key loaded: ${this.apiKey.substring(0, 10)}...`);
         }
     }
 
@@ -75,7 +75,7 @@ Answer guests' questions naturally. Only ask about hotel when hotel-specific inf
 
             let systemPrompt = systemPrompts[detectedLanguage] || systemPrompts['tr'];
             
-            console.log(`í¼ Using ${detectedLanguage} system prompt for Gemini (TEXT-ONLY)`);
+            console.log(`ï¿½ï¿½ï¿½ Using ${detectedLanguage} system prompt for Gemini (TEXT-ONLY)`);
             
             // Add knowledge context if available
             if (knowledgeContext && knowledgeContext.trim().length > 0) {
