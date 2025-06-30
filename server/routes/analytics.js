@@ -373,8 +373,8 @@ CRITICAL RULES:
             .map(([question, count]) => {
                 const meta = questionMetadata[question];
                 return {
-                    questionText: question,
-                    count: count,
+                questionText: question,
+                count: count,
                     category: Array.from(meta.categories)[0] || 'Genel',
                     languages: Array.from(meta.languages),
                     hotels: Array.from(meta.hotels)

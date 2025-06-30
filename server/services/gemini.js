@@ -6,7 +6,7 @@ class GeminiService {
         this.model = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
         this.apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent`;
         
-        console.log(`🤖 Gemini API initialized: ${this.model}`);
+        console.log(`🤖 Gemini API initialized: ${this.model} (TEXT-ONLY MODE)`);
         if (!this.apiKey) {
             console.error('❌ GEMINI_API_KEY not found in environment variables');
         } else {
