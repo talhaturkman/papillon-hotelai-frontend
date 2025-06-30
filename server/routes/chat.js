@@ -23,8 +23,8 @@ router.post('/message', async (req, res) => {
         const currentSessionId = sessionId || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
         // Detect language and hotel from user message with conversation context
-        const detectedLanguage = await naturalLanguageService.detectLanguageWithContext(message, chatHistory);
-        let detectedHotel = extractHotelName(message, chatHistory);
+        const detectedLanguage = await geminiService.detectLanguage(message, chatHistory);
+        let detectedHotel = await geminiService.detectHotelWithAI(message, chatHistory);
 
         // Retrieve previous hotel for this session if user didn't mention again
         if (!detectedHotel && sessionState.has(currentSessionId)) {
@@ -319,96 +319,5 @@ router.get('/tts/test', async (req, res) => {
         });
     }
 });
-
-// Helper functions
-function extractHotelName(text, chatHistory = []) {
-    const hotels = ['belvil', 'zeugma', 'ayscha'];
-    const textLower = text.toLowerCase();
-    
-    // 1. Direct hotel name match (mevcut sistem)
-    for (const hotel of hotels) {
-        if (textLower.includes(hotel)) {
-            return hotel.charAt(0).toUpperCase() + hotel.slice(1);
-        }
-    }
-    
-    // 2. Turkish patterns - çekim ekleri ve yaygın ifadeler
-    const turkishPatterns = [
-        // "Ben X'de kalıyorum" formatları
-        /ben\s+(belvil|zeugma|ayscha)['']?d[ae]\s+kal/i,
-        /(belvil|zeugma|ayscha)['']?d[ae]\s+kal/i,
-        // "X'dan yazıyorum" formatları  
-        /(belvil|zeugma|ayscha)['']?dan\s+yaz/i,
-        /(belvil|zeugma|ayscha)['']?den\s+yaz/i,
-        // "X otelinde" formatları
-        /(belvil|zeugma|ayscha)\s+otel/i,
-        /papillon\s+(belvil|zeugma|ayscha)/i,
-        // "X'de konaklıyorum" formatları
-        /(belvil|zeugma|ayscha)['']?d[ae]\s+konak/i
-    ];
-    
-    for (const pattern of turkishPatterns) {
-        const match = textLower.match(pattern);
-        if (match && match[1]) {
-            const hotel = match[1].toLowerCase();
-            return hotel.charAt(0).toUpperCase() + hotel.slice(1);
-        }
-    }
-    
-    // 3. Chat history'den otel tespiti - son 3 mesajı kontrol et (recursive olmadan)
-    if (chatHistory && chatHistory.length > 0) {
-        const recentMessages = chatHistory.slice(-3);
-        for (const msg of recentMessages) {
-            if (msg.content) {
-                const msgLower = msg.content.toLowerCase();
-                
-                // Direkt hotel ismi arama
-                for (const hotel of hotels) {
-                    if (msgLower.includes(hotel)) {
-                        console.log(`🏨 Hotel detected from chat history: ${hotel.charAt(0).toUpperCase() + hotel.slice(1)}`);
-                        return hotel.charAt(0).toUpperCase() + hotel.slice(1);
-                    }
-                }
-                
-                // Turkish patterns arama
-                const turkishPatterns = [
-                    /ben\s+(belvil|zeugma|ayscha)['']?d[ae]\s+kal/i,
-                    /(belvil|zeugma|ayscha)['']?d[ae]\s+kal/i,
-                    /(belvil|zeugma|ayscha)['']?dan\s+yaz/i,
-                    /(belvil|zeugma|ayscha)['']?den\s+yaz/i,
-                    /(belvil|zeugma|ayscha)\s+otel/i,
-                    /papillon\s+(belvil|zeugma|ayscha)/i,
-                    /(belvil|zeugma|ayscha)['']?d[ae]\s+konak/i
-                ];
-                
-                for (const pattern of turkishPatterns) {
-                    const match = msgLower.match(pattern);
-                    if (match && match[1]) {
-                        const hotel = match[1].toLowerCase();
-                        console.log(`🏨 Hotel detected from chat history (pattern): ${hotel.charAt(0).toUpperCase() + hotel.slice(1)}`);
-                        return hotel.charAt(0).toUpperCase() + hotel.slice(1);
-                    }
-                }
-            }
-        }
-    }
-    
-    // 4. English patterns
-    const englishPatterns = [
-        /staying\s+at\s+(belvil|zeugma|ayscha)/i,
-        /at\s+papillon\s+(belvil|zeugma|ayscha)/i,
-        /(belvil|zeugma|ayscha)\s+hotel/i
-    ];
-    
-    for (const pattern of englishPatterns) {
-        const match = textLower.match(pattern);
-        if (match && match[1]) {
-            const hotel = match[1].toLowerCase();
-            return hotel.charAt(0).toUpperCase() + hotel.slice(1);
-        }
-    }
-    
-    return null;
-}
 
 module.exports = router; 

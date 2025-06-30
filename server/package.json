@@ -4,8 +4,9 @@
   "description": "Papillon Hotels AI Backend API",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
-    "dev": "nodemon index.js"
+    "start": "kill-port 5002 && node index.js",
+    "dev": "nodemon index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
     "@elevenlabs/elevenlabs-js": "^2.4.1",
@@ -17,11 +18,15 @@
     "express-rate-limit": "^7.2.0",
     "firebase-admin": "^13.4.0",
     "helmet": "^7.1.0",
-    "multer": "^2.0.1"
+    "multer": "^2.0.1",
+    "pdf-lib": "^1.17.1"
   },
   "engines": {
     "node": ">=18.0.0"
   },
   "author": "Talha Turkman",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "kill-port": "^2.0.1"
+  }
 }
