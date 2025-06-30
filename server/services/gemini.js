@@ -201,3 +201,4 @@ Answer guests' questions naturally. Only ask about hotel when hotel-specific inf
 }
 
 module.exports = new GeminiService();
+// Force rebuild Mon, Jun 30, 2025 10:53:02 AM
