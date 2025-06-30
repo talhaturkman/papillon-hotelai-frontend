@@ -3,7 +3,7 @@ const axios = require('axios');
 class GeminiService {
     constructor() {
         this.apiKey = process.env.GEMINI_API_KEY;
-        this.model = process.env.GEMINI_MODEL || 'gemini-2.0-flash-preview';
+        this.model = process.env.GEMINI_MODEL || 'gemini-2.0-flash-preview-image-generation';
         this.apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent`;
         
         console.log(`��� Gemini API initialized: ${this.model} (TEXT-ONLY MODE)`);
