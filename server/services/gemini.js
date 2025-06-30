@@ -6,11 +6,11 @@ class GeminiService {
         this.model = process.env.GEMINI_MODEL || 'gemini-2.0-flash-preview-image-generation';
         this.apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent`;
         
-        console.log(`ï¿½ï¿½ï¿½ Gemini API initialized: ${this.model} (TEXT-ONLY MODE)`);
+        console.log(`í´– Gemini API initialized: ${this.model} (IMAGE-GENERATION MODE)`);
         if (!this.apiKey) {
             console.error('âŒ GEMINI_API_KEY not found in environment variables');
         } else {
-            console.log(`ï¿½ï¿½ï¿½ API Key loaded: ${this.apiKey.substring(0, 10)}...`);
+            console.log(`í´‘ API Key loaded: ${this.apiKey.substring(0, 10)}...`);
         }
     }
 
@@ -75,7 +75,7 @@ Answer guests' questions naturally. Only ask about hotel when hotel-specific inf
 
             let systemPrompt = systemPrompts[detectedLanguage] || systemPrompts['tr'];
             
-            console.log(`ï¿½ï¿½ï¿½ Using ${detectedLanguage} system prompt for Gemini (TEXT-ONLY)`);
+            console.log(`í¼ Using ${detectedLanguage} system prompt for Gemini (IMAGE-GENERATION)`);
             
             // Add knowledge context if available
             if (knowledgeContext && knowledgeContext.trim().length > 0) {
@@ -100,7 +100,7 @@ Answer guests' questions naturally. Only ask about hotel when hotel-specific inf
                 });
             });
 
-            // TEXT-ONLY OPTIMIZED CONFIGURATION - Only supported fields
+            // IMAGE-GENERATION MODEL CONFIGURATION - Supports TEXT + IMAGE modalities
             const requestData = {
                 contents: conversationHistory,
                 generationConfig: {
@@ -109,7 +109,9 @@ Answer guests' questions naturally. Only ask about hotel when hotel-specific inf
                     topP: 0.8,
                     topK: 40,
                     candidateCount: 1
-                }
+                },
+                // Image generation model requires both TEXT and IMAGE modalities
+                responseModality: ["TEXT", "IMAGE"]
             };
 
             const response = await axios.post(
@@ -125,7 +127,7 @@ Answer guests' questions naturally. Only ask about hotel when hotel-specific inf
 
             if (response.data && response.data.candidates && response.data.candidates[0]) {
                 const aiResponse = response.data.candidates[0].content.parts[0].text;
-                console.log(`âœ… Gemini API Success (TEXT-ONLY): Response length ${aiResponse.length} chars`);
+                console.log(`âœ… Gemini API Success (IMAGE-GENERATION): Response length ${aiResponse.length} chars`);
                 return {
                     success: true,
                     response: aiResponse
@@ -201,4 +203,3 @@ Answer guests' questions naturally. Only ask about hotel when hotel-specific inf
 }
 
 module.exports = new GeminiService();
-// Force rebuild Mon, Jun 30, 2025 10:53:02 AM
