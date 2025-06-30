@@ -6,7 +6,7 @@ class GeminiService {
         this.model = process.env.GEMINI_MODEL || 'gemini-2.0-flash-preview-image-generation';
         this.apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent`;
         
-        console.log(`í´– Gemini API initialized: ${this.model} (FIXED)`);
+        console.log(`í´– Gemini API initialized: ${this.model} (IMAGE-GEN-COMPATIBLE)`);
         if (!this.apiKey) {
             console.error('âŒ GEMINI_API_KEY not found in environment variables');
         } else {
@@ -75,7 +75,7 @@ Answer guests' questions naturally. Only ask about hotel when hotel-specific inf
 
             let systemPrompt = systemPrompts[detectedLanguage] || systemPrompts['tr'];
             
-            console.log(`í¼ Using ${detectedLanguage} system prompt for Gemini (FIXED)`);
+            console.log(`í¼ Using ${detectedLanguage} system prompt for Gemini (IMAGE-GEN-COMPATIBLE)`);
             
             // Add knowledge context if available
             if (knowledgeContext && knowledgeContext.trim().length > 0) {
@@ -100,7 +100,7 @@ Answer guests' questions naturally. Only ask about hotel when hotel-specific inf
                 });
             });
 
-            // MINIMAL CONFIGURATION - Only basic fields
+            // IMAGE GENERATION MODEL COMPATIBLE CONFIGURATION
             const requestData = {
                 contents: conversationHistory,
                 generationConfig: {
@@ -109,6 +109,17 @@ Answer guests' questions naturally. Only ask about hotel when hotel-specific inf
                     topP: 0.8,
                     topK: 40,
                     candidateCount: 1
+                },
+                // Image generation model specifically requires IMAGE,TEXT order
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: "object",
+                    properties: {
+                        text_response: {
+                            type: "string"
+                        }
+                    },
+                    required: ["text_response"]
                 }
             };
 
@@ -124,8 +135,17 @@ Answer guests' questions naturally. Only ask about hotel when hotel-specific inf
             );
 
             if (response.data && response.data.candidates && response.data.candidates[0]) {
-                const aiResponse = response.data.candidates[0].content.parts[0].text;
-                console.log(`âœ… Gemini API Success (FIXED): Response length ${aiResponse.length} chars`);
+                let aiResponse;
+                try {
+                    // Try to parse structured response
+                    const structuredResponse = JSON.parse(response.data.candidates[0].content.parts[0].text);
+                    aiResponse = structuredResponse.text_response || response.data.candidates[0].content.parts[0].text;
+                } catch (e) {
+                    // Fallback to plain text
+                    aiResponse = response.data.candidates[0].content.parts[0].text;
+                }
+                
+                console.log(`âœ… Gemini API Success (IMAGE-GEN-COMPATIBLE): Response length ${aiResponse.length} chars`);
                 return {
                     success: true,
                     response: aiResponse
