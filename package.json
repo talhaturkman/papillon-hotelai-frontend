@@ -2,7 +2,7 @@
   "name": "papillon-hotelai",
   "version": "1.0.0",
   "scripts": {
-    "start": "cd server && node index.js",
+    "start": "node server/index.js",
     "build": "echo 'Build completed'"
   },
   "engines": {

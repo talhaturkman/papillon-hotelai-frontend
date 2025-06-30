@@ -7,6 +7,10 @@ import VoiceControls from './VoiceControls';
 // Add this constant at the top after imports
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5002';
 
+// Persist conversation session across page reloads
+const LOCAL_SESSION_KEY = 'papillon_session_id';
+const LOCAL_MESSAGES_KEY = 'papillon_messages_cache';
+
 // Format AI response with enhanced markdown support
 function formatMessage(text) {
   return text
@@ -37,14 +41,24 @@ function formatMessage(text) {
 }
 
 function ChatInterface() {
-  const [messages, setMessages] = useState([
-    {
+  // Load cached messages if any
+  const cachedMessages = (() => {
+    try {
+      const raw = localStorage.getItem(LOCAL_MESSAGES_KEY);
+      if (raw) {
+        return JSON.parse(raw).map(m => ({ ...m, timestamp: new Date(m.timestamp) }));
+      }
+    } catch {}
+    return [{
       id: 1,
       role: 'assistant',
       content: 'Merhaba!',
       timestamp: new Date()
-    }
-  ]);
+    }];
+  })();
+
+  const [messages, setMessages] = useState(cachedMessages);
+  const [sessionId, setSessionId] = useState(() => localStorage.getItem(LOCAL_SESSION_KEY) || null);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [userLocation, setUserLocation] = useState(null);
@@ -56,6 +70,8 @@ function ChatInterface() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    // Cache messages locally for persistence
+    localStorage.setItem(LOCAL_MESSAGES_KEY, JSON.stringify(messages));
   }, [messages]);
 
   // Check if message is location-based (synced with backend logic)
@@ -127,7 +143,8 @@ function ChatInterface() {
 
       const requestData = {
         message: messageToProcess,
-        chatHistory: chatHistory
+        chatHistory: chatHistory,
+        sessionId: sessionId || undefined
       };
 
       // Add user location if available
@@ -152,6 +169,12 @@ function ChatInterface() {
       console.log('💬 Assistant message with places:', assistantMessage);
       console.log('🔍 Will show map?', !!assistantMessage.placesData?.isLocationQuery);
       setMessages(prev => [...prev, assistantMessage]);
+
+      // Persist sessionId if new
+      if (response.data.sessionId && response.data.sessionId !== sessionId) {
+        setSessionId(response.data.sessionId);
+        localStorage.setItem(LOCAL_SESSION_KEY, response.data.sessionId);
+      }
     } catch (error) {
       const errorMessage = {
         id: Date.now() + 1,
@@ -227,7 +250,8 @@ function ChatInterface() {
 
       const requestData = {
         message: voiceText,
-        chatHistory: chatHistory
+        chatHistory: chatHistory,
+        sessionId: sessionId || undefined
       };
 
       // Add user location if available
@@ -249,6 +273,12 @@ function ChatInterface() {
       };
 
       setMessages(prev => [...prev, assistantMessage]);
+
+      // Persist sessionId if new
+      if (response.data.sessionId && response.data.sessionId !== sessionId) {
+        setSessionId(response.data.sessionId);
+        localStorage.setItem(LOCAL_SESSION_KEY, response.data.sessionId);
+      }
     } catch (error) {
       const errorMessage = {
         id: Date.now() + 1,

@@ -6,6 +6,10 @@ const placesService = require('../services/places');
 const naturalLanguageService = require('../services/naturalLanguage');
 const elevenlabs = require('../services/elevenlabs');
 
+// In-memory session state to remember selected hotel within a chat session
+// key: sessionId → { hotel: 'Belvil' }
+const sessionState = new Map();
+
 // Chat endpoint for guest interactions
 router.post('/message', async (req, res) => {
     try {
@@ -20,7 +24,18 @@ router.post('/message', async (req, res) => {
 
         // Detect language and hotel from user message with conversation context
         const detectedLanguage = await naturalLanguageService.detectLanguageWithContext(message, chatHistory);
-        const detectedHotel = extractHotelName(message, chatHistory);
+        let detectedHotel = extractHotelName(message, chatHistory);
+
+        // Retrieve previous hotel for this session if user didn't mention again
+        if (!detectedHotel && sessionState.has(currentSessionId)) {
+            detectedHotel = sessionState.get(currentSessionId).hotel;
+            console.log(`🏨 Using remembered hotel from session: ${detectedHotel}`);
+        }
+
+        // Remember newly detected hotel for subsequent turns
+        if (detectedHotel) {
+            sessionState.set(currentSessionId, { hotel: detectedHotel });
+        }
         
         console.log(`🌐 Language detection: "${message}" → ${detectedLanguage}`);
 
