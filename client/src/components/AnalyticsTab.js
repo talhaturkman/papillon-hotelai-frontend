@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 
 // API Base URL for backend communication
@@ -28,7 +28,7 @@ function AnalyticsTab({ authToken }) {
     loadAnalytics();
   }, []);
 
-  const loadAnalytics = async (forceRefresh = false) => {
+  const loadAnalytics = useCallback(async (forceRefresh = false) => {
     setLoading(true);
     setError('');
 
@@ -56,7 +56,18 @@ function AnalyticsTab({ authToken }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [authToken]);
+
+  useEffect(() => {
+    loadAnalytics();
+  }, [loadAnalytics]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadAnalytics();
+    }, 60000);
+    return () => clearInterval(interval);
+  }, [loadAnalytics]);
 
   const handleForceRefresh = () => {
     console.log('🔥 Force refresh triggered');

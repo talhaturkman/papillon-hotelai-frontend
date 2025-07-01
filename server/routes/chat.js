@@ -4,11 +4,13 @@ const { v4: uuidv4 } = require('uuid');
 const geminiService = require('../services/gemini');
 const firebaseService = require('../services/firebase');
 const elevenLabsService = require('../services/elevenlabs');
+const translationService = require('../services/translation');
+const placesService = require('../services/places');
 
 router.post('/tts', async (req, res) => {
-    const { text, language = 'tr', gender = 'female' } = req.body;
-
-    if (!text) {
+        const { text, language = 'tr', gender = 'female' } = req.body;
+        
+        if (!text) {
         return res.status(400).json({ error: 'Text is required for TTS' });
     }
 
@@ -29,18 +31,18 @@ router.post('/tts', async (req, res) => {
 });
 
 router.post('/', async (req, res) => {
-    let { message, history, session_id } = req.body;
-
-    if (!session_id) {
-        session_id = uuidv4();
-        console.log(`✨ New session started: ${session_id}`);
-    }
-
-    if (!message) {
-        return res.status(400).json({ error: 'Message is required' });
-    }
-
     try {
+        let { message, history = [], session_id, userLocation } = req.body;
+
+        if (!session_id) {
+            session_id = uuidv4();
+            console.log(`✨ New session started: ${session_id}`);
+        }
+
+        if (!message) {
+            return res.status(400).json({ error: 'Message is required' });
+        }
+
         // The AI is now responsible for identifying support requests via a special tag.
         // Our logic is much simpler: just call the AI and check its response.
 
@@ -48,61 +50,77 @@ router.post('/', async (req, res) => {
         const hotel = await geminiService.detectHotelWithAI(message, history);
         const detectedLanguage = await geminiService.detectLanguage(message, history);
         
-        let knowledgeContext = null;
-        if (hotel) {
-            const knowledge = await firebaseService.searchKnowledge(message, hotel, detectedLanguage);
-            if (knowledge && knowledge.length > 0) {
-                knowledgeContext = knowledge[0].content;
-            }
-        }
+        // Add user's message to history for this turn
+        const chatHistory = [...history, { role: 'user', content: message }];
 
-        // 2. Generate AI response
-        const fullHistory = [...history, { role: 'user', content: message }];
-        const aiResult = await geminiService.generateResponse(fullHistory, knowledgeContext, detectedLanguage);
-
-        let offerSupport = false;
-        let finalResponse = '';
-
-        if (!aiResult.success) {
-            // Handle cases where the AI service itself fails
-            offerSupport = true;
-            finalResponse = 'Üzgünüm, yapay zeka servisinde bir sorun oluştu. Sizi bir temsilciye bağlamamı ister misiniz?';
-        } else {
-            finalResponse = aiResult.response;
-
-            // 3. Check for the special support tag from the AI
-            if (finalResponse.includes('[DESTEK_TALEBI]')) {
-                offerSupport = true;
-                
-                // Replace the tag with a user-friendly message based on language
-                const supportOfferMessages = {
-                    'tr': 'Anladım, sizi bir müşteri temsilcisine bağlamamı ister misiniz?',
-                    'en': 'I understand. Would you like me to connect you to a customer service agent?',
-                    'de': 'Ich verstehe. Möchten Sie, dass ich Sie mit einem Kundendienstmitarbeiter verbinde?',
-                    'ru': 'Я понимаю. Хотите, я соединю вас с представителем службы поддержки?'
-                };
-                finalResponse = supportOfferMessages[detectedLanguage] || supportOfferMessages['en'];
-            }
-        }
-        
-        // 4. Save the interaction to Firestore
-        const interaction = {
-            timestamp: new Date(),
-            userInput: message,
-            aiResponse: finalResponse,
-            session_id: session_id,
-            offerSupport: offerSupport,
+        // Asynchronously log the question for analytics without waiting for it to complete
+        firebaseService.logQuestionForAnalysis({
+            message,
             detectedHotel: hotel,
-            detectedLanguage: detectedLanguage
-        };
-        await firebaseService.storeChatLog(interaction);
-
-        // 5. Send response back to client, now including the session_id
-        res.json({ 
-            response: finalResponse,
-            offerSupport: offerSupport,
+            detectedLanguage,
             sessionId: session_id
         });
+
+        // NEW: Check if this is a location-based query FIRST
+        const isLocation = await placesService.isLocationQueryEnhanced(message, history, detectedLanguage);
+
+        let knowledgeContext = null;
+        let aiResult;
+
+        if (isLocation) {
+            console.log('📍 This is a location query. Using PlacesService...');
+            aiResult = await placesService.handleLocationQuery(message, hotel, detectedLanguage, userLocation);
+        } else {
+            console.log('📚 This is a knowledge query. Fetching all relevant knowledge...');
+            
+            let combinedKnowledge = {};
+
+            // 1. Fetch general and daily knowledge
+            if (hotel) {
+                const knowledgeResult = await firebaseService.searchKnowledge(hotel, detectedLanguage);
+                if (knowledgeResult.success && knowledgeResult.content) {
+                    combinedKnowledge = { ...knowledgeResult.content };
+                    console.log(`🧠 General/Daily knowledge loaded for ${hotel}/${detectedLanguage}`);
+                }
+            }
+
+            // 2. Check for SPA context and fetch SPA catalog if needed
+            const isSpaQuery = await geminiService.isSpaQuery(message, history, detectedLanguage);
+            if (isSpaQuery && hotel) {
+                 const spaCatalog = await firebaseService.getSpaCatalog(hotel, detectedLanguage);
+                 if (spaCatalog) {
+                    combinedKnowledge.spa = spaCatalog;
+                    console.log(`🧖‍♀️ SPA Catalog loaded for ${hotel}/${detectedLanguage}`);
+                 }
+            }
+
+            // Convert the combined knowledge object to a JSON string to pass to the AI
+            const knowledgeContextString = Object.keys(combinedKnowledge).length > 0 ? JSON.stringify(combinedKnowledge) : null;
+
+            // 3. Generate AI response using the combined knowledge
+            aiResult = await geminiService.generateResponse(chatHistory, knowledgeContextString, detectedLanguage, userLocation);
+        }
+
+        if (!aiResult.success) {
+            return res.status(500).json({ success: false, error: 'AI service failed' });
+        }
+        
+        // 3. Final Step: Force translation to the user's language
+        const finalResponse = await translationService.translateText(aiResult.response, detectedLanguage);
+
+        const responsePayload = {
+            success: true,
+            response: finalResponse,
+            sessionId: session_id,
+            placesData: aiResult.placesData,
+            offerSupport: finalResponse.includes('[DESTEK_TALEBI]')
+        };
+        
+        // 4. Add the final assistant message to history for storage
+        const finalHistory = [...chatHistory, { role: 'assistant', content: finalResponse }];
+        await firebaseService.storeChatConversation(session_id, finalHistory);
+        
+        res.json(responsePayload);
 
     } catch (error) {
         console.error('❌ Chat endpoint error:', error);
@@ -110,4 +128,4 @@ router.post('/', async (req, res) => {
     }
 });
 
-module.exports = router;
+module.exports = router; 

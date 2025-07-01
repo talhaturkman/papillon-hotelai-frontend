@@ -5,7 +5,7 @@ import LocationPermission from './LocationPermission';
 import VoiceControls from './VoiceControls';
 import './ChatInterface.css';
 
-const API_BASE_URL = 'http://192.168.203.16:5002';
+const API_BASE_URL = 'http://localhost:5002';
 const LOCAL_SESSION_KEY = 'papillon_session_id';
 const LOCAL_MESSAGES_KEY = 'papillon_messages_cache';
 
@@ -25,17 +25,7 @@ function formatMessage(text) {
 }
 
 function ChatInterface() {
-  const cachedMessages = (() => {
-    try {
-      const raw = localStorage.getItem(LOCAL_MESSAGES_KEY);
-      if (raw) {
-        return JSON.parse(raw).map(m => ({ ...m, timestamp: new Date(m.timestamp) }));
-      }
-    } catch {}
-    return [{ id: 1, role: 'assistant', content: 'Merhaba!', timestamp: new Date() }];
-  })();
-
-  const [messages, setMessages] = useState(cachedMessages);
+  const [messages, setMessages] = useState([]);
   const [sessionId, setSessionId] = useState(() => localStorage.getItem(LOCAL_SESSION_KEY) || null);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -146,7 +136,7 @@ function ChatInterface() {
       const cleanText = lastMessage.content.replace(/<[^>]*>/g, '').trim();
       if (cleanText) {
         setSpokenMessageIds(prevSet => new Set(prevSet).add(lastMessage.id));
-        setTimeout(() => {
+          setTimeout(() => {
           voiceOutput.speakText(cleanText);
         }, 300);
       }
@@ -222,6 +212,11 @@ function ChatInterface() {
         </div>
       </div>
       <div className="chat-messages" style={{ flexGrow: 1, overflowY: 'auto', padding: '1rem' }}>
+        {/* Static, visual-only greeting message */}
+        <div className="message assistant">
+          Merhaba!
+        </div>
+
         {messages.map((message) => (
           <div key={message.id} className={`message ${message.role}`}>
             {message.role === 'assistant' ? (
@@ -248,13 +243,38 @@ function ChatInterface() {
         )}
         <div ref={messagesEndRef} />
       </div>
-      <div className="chat-input" style={{ flexShrink: 0 }}>
-        <VoiceControls onVoiceInput={handleVoiceInput} onVoiceOutput={handleVoiceOutput} isLoading={isLoading} language={detectedLanguage} lastAssistantMessage={messages.length > 0 ? messages[messages.length - 1].content : ''} />
-        <input type="text" value={inputValue} onChange={(e) => setInputValue(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && sendMessage()} placeholder="Chat..." disabled={isLoading} />
-        <button onClick={() => sendMessage()} disabled={isLoading || !inputValue.trim()}> ➤ </button>
+
+      <div 
+        className="chat-input-container"
+      >
+        <form
+          className="chat-input-form"
+          onSubmit={(e) => {
+            e.preventDefault();
+            sendMessage();
+          }}
+        >
+        <VoiceControls
+          onVoiceInput={handleVoiceInput}
+          onVoiceOutput={handleVoiceOutput}
+            language={detectedLanguage}
+            isSpeaking={voiceOutput?.isSpeaking}
+          isLoading={isLoading}
+        />
+        <input
+          type="text"
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          placeholder="Chat..."
+          disabled={isLoading}
+        />
+          <button type="submit" className="send-button" disabled={isLoading || !inputValue.trim()}>
+          ➤
+        </button>
+        </form>
       </div>
     </div>
   );
 }
 
-export default ChatInterface;
+export default ChatInterface; 

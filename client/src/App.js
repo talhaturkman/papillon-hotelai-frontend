@@ -1,9 +1,10 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
 import ChatInterface from './components/ChatInterface';
 import AdminPanel from './components/AdminPanel';
 import Navigation from './components/Navigation';
+import LocationPermission from './components/LocationPermission';
 import './App.css';
 
 // A simple, clean theme for our app
@@ -31,18 +32,25 @@ function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline /> {/* MUI's CSS reset for consistency */}
       <Router>
-        <div className="App">
-          {/* <Navigation /> */}
-          <main className="main-content">
-            <Routes>
-              <Route path="/" element={<Navigate to="/chat" replace />} />
-              <Route path="/chat" element={<ChatInterface />} />
-              <Route path="/admin" element={<AdminPanel />} />
-            </Routes>
-          </main>
-        </div>
+        <MainContent />
       </Router>
     </ThemeProvider>
+  );
+}
+
+function MainContent() {
+  const location = useLocation();
+  const isAdminView = location.pathname.startsWith('/admin');
+
+  return (
+    <div className={`app-container ${isAdminView ? 'admin-view' : ''}`}>
+      <Routes>
+        <Route path="/chat" element={<div className="chat-container"><ChatInterface /></div>} />
+        <Route path="/admin" element={<AdminPanel />} />
+        <Route path="/location" element={<LocationPermission />} />
+        <Route path="/" element={<div className="chat-container"><ChatInterface /></div>} />
+      </Routes>
+    </div>
   );
 }
 

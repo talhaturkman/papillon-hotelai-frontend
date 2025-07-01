@@ -1,0 +1,400 @@
+[Test 1/100] [Belvil/en] SUCCESS (1.72s)
+❓ Question: Are pets allowed in the hotel rooms?
+�� Answer: Pets are not allowed. 
+---
+[Test 2/100] [Belvil/de] SUCCESS (1.60s)
+❓ Question: Ist das WLAN in den Zimmern und am Strand kostenlos? Wie ist die Geschwindigkeit?
+�� Answer: WI-FI - Internet ist kostenlos. Ich habe keine detaillierten Informationen zur Geschwindigkeit. 
+---
+[Test 3/100] [Zeugma/de] SUCCESS (1.59s)
+❓ Question: Wie sind die Check-in- und Check-out-Zeiten und kann ich einen späten Check-out beantragen?
+�� Answer: Ich habe keine detaillierten Informationen zu diesem Thema.
+---
+[Test 4/100] [Ayscha/ru] SUCCESS (2.04s)
+❓ Question: Бесплатный ли Wi-Fi в номерах и на пляже? Какая скорость?
+�� Answer: Wi-Fi предоставляется бесплатно. У меня нет информации о скорости Wi-Fi. 
+---
+[Test 5/100] [Zeugma/en] SUCCESS (1.85s)
+❓ Question: Tell me about all the à la carte restaurants. What type of cuisine are they and do they have an extra charge?
+�� Answer: The à la carte restaurants are:  *   **Asma:** Modern Turkish Cuisine, 5 € charge *   **Farfalle:** Italian Cuisine, 5 € charge *   **Haru:** Far East Cuisine, 5 € charge *   **Mey Hane:** Fish & Seafood, 5 € charge
+---
+[Test 6/100] [Ayscha/de] SUCCESS (1.69s)
+❓ Question: Wie sind die Check-in- und Check-out-Zeiten und kann ich einen späten Check-out beantragen?
+�� Answer: Ich habe keine detaillierten Informationen zu diesem Thema.
+---
+[Test 7/100] [Belvil/en] SUCCESS (1.37s)
+❓ Question: I am allergic to nuts. How does the hotel handle food allergies in the main restaurant?
+�� Answer: For guests with special allergies: Upon request, the food they want is prepared in all our restaurants, if they specify in advance.
+---
+[Test 8/100] [Ayscha/en] SUCCESS (1.40s)
+❓ Question: Which hotel is better for a quiet, relaxing holiday, Zeugma or Ayscha? Describe the atmosphere.
+�� Answer: I don't have detailed information on this topic. 
+---
+[Test 9/100] [Zeugma/en] SUCCESS (1.42s)
+❓ Question: Is there a spa? List three services offered and tell me if the Turkish bath is free.
+�� Answer: Yes, there is a spa called Reborn SPA Wellness. It offers massage services, specialized packages, and Kids Spa treatments. The Turkish bath is free to use. 
+---
+[Test 10/100] [Belvil/en] SUCCESS (1.71s)
+❓ Question: List all the bars. Which ones are open 24/7?
+�� Answer: The bars are: Bloom Lounge, Wine Cellar, Mirage Bar, Aphrodite Lobby Bar, Beach Bar, Aqua Bar, Pasha Lounge, Disco Bar, Blue Pool Bar, Amphitheater, Food Court, and Belle Vue. The Bloom Lounge and Wine Cellar are open 24/7. 
+---
+[Test 11/100] [Zeugma/de] SUCCESS (1.77s)
+❓ Question: Ist das WLAN in den Zimmern und am Strand kostenlos? Wie ist die Geschwindigkeit?
+�� Answer: WI-FI ist kostenlos. Ich habe keine Informationen über die Geschwindigkeit. 
+---
+[Test 12/100] [Belvil/tr] SUCCESS (1.83s)
+❓ Question: Tüm barları listeleyin. Hangileri 7/24 açık?
+�� Answer: Bugün Papillon Belvil'deki barlar şunlardır: Mirage Bar, Afrodite Bar, Blue Bar, Alacarte Bar, Aqua Bar, Bloom Lounge ve Disco Bar.  Bloom Lounge 7/24 açıktır.
+---
+[Test 13/100] [Zeugma/ru] SUCCESS (1.53s)
+❓ Question: Как добраться до отеля из аэропорта Анталии? Предлагаете ли вы трансфер?
+�� Answer: У меня нет подробной информации по этому вопросу. 
+---
+[Test 14/100] [Ayscha/tr] SUCCESS (1.68s)
+❓ Question: Fındığa alerjim var. Ana restoranda gıda alerjileri konusunda nasıl bir uygulama var?
+�� Answer: Ana Restoranda istek doğrultusunda özel alerjisi olan misafirlere, önceden belirtmeleri dahilinde istedikleri yiyecekler hazırlanır.
+---
+[Test 15/100] [Zeugma/de] SUCCESS (1.47s)
+❓ Question: Ich bin allergisch gegen Nüsse. Wie geht das Hotel mit Lebensmittelallergien im Hauptrestaurant um?
+�� Answer: For guests with special allergies: Upon request, the food they want is prepared in all our restaurants, if they specify in advance. 
+---
+[Test 16/100] [Zeugma/de] SUCCESS (1.47s)
+❓ Question: Wie sind die Check-in- und Check-out-Zeiten und kann ich einen späten Check-out beantragen?
+�� Answer: Ich habe keine detaillierten Informationen zu diesem Thema. 
+---
+[Test 17/100] [Belvil/en] SUCCESS (1.68s)
+❓ Question: Are pets allowed in the hotel rooms?
+�� Answer: Pets are not allowed. 
+---
+[Test 18/100] [Ayscha/ru] SUCCESS (1.51s)
+❓ Question: Как добраться до отеля из аэропорта Анталии? Предлагаете ли вы трансфер?
+�� Answer: Расстояние от аэропорта Антальи до отеля составляет 35 км. У меня нет информации о трансфере. 
+---
+[Test 19/100] [Ayscha/ru] SUCCESS (1.60s)
+❓ Question: Есть ли спа? Перечислите три предлагаемые услуги и скажите, бесплатная ли турецкая баня.
+�� Answer: Да, у нас есть Reborn Spa Wellness. Вот три предлагаемые услуги: массаж, уход за кожей лица и тела. Турецкая баня предоставляется бесплатно.
+---
+[Test 20/100] [Ayscha/tr] SUCCESS (2.95s)
+❓ Question: Tüm à la carte restoranlar hakkında bilgi verin. Mutfak türleri nedir ve ekstra ücretli midir?
+�� Answer: Akşam A la Carte Hizmetleri aşağıdaki gibidir:  *   **Surf Turf:** Steak Seafood, ücretli, kişi başı 50€. *   **Safran:** Modern Türk, ücretli, kişi başı 5€. *   **Mikado:** Uzakdoğu, ücretli, kişi başı 5€. *   **Mikado (01.05-31.10):** Teppanyaki, ücretli (seçilen set menüye göre ücretlendirilir). *   **Coral:** Balık & Deniz Ürünleri, ücretli, kişi başı 5€ (15.04-31.10 tarihleri arasında). *   **Viccolo:** İtalyan, ücretli, kişi başı 5€ (01.05-31.10 tarihleri arasında). *   **Taco:** Meksika, ücretli, kişi başı 5€ (15.05-31.10 tarihleri arasında, Select Villa Bölgesi).  A la Carte restoranlarımızda rezervasyon gereklidir. 0-6 yaşına kadar ücretsizdir. Konsepte dahil olmayan yerli yabancı premium alkollü içecekler ücretli olarak servis edilecektir.
+---
+[Test 21/100] [Zeugma/tr] SUCCESS (1.51s)
+❓ Question: Rezervasyonumla ilgili bir sorun hakkında bir insan temsilciyle konuşmam gerekiyor.
+�� Answer: Anladım, sizi bir müşteri temsilcisine bağlamamı ister misiniz?
+---
+[Test 22/100] [Belvil/en] SUCCESS (1.30s)
+❓ Question: Is the Wi-Fi free in the rooms and on the beach? How is the speed?
+�� Answer: WI-FI - Internet is a free service. I don't have detailed information on this topic. 
+---
+[Test 23/100] [Zeugma/en] SUCCESS (1.90s)
+❓ Question: What activities are available for children aged 4-8 versus teenagers?
+�� Answer: For children, Papy Kids Club offers activities such as Papy Kids Carnival, Baloon Shows, Science Shows, Magician Shows, Space Shows, Clown Shows, Face Painting, Cinema, Mini Disco, Kids Party Activities, Pool Games, Boccia, Water Polo, Dart, Football, Table Tennis, Olympics, Lego, Playstation, Nerf, Mini Bowling, Mini Basketball, Bubble Game, Art Workshop, Painting, Canvas Art, Wood Workshop, Keychain Making, Origami, Jewelry Making, Toy Making, Dreamcatcher, and Art Therapy. Papy Kids Sports Academy offers Tennis, Swimming, and Football.  I don't have detailed information on activities for teenagers. 
+---
+[Test 24/100] [Zeugma/tr] SUCCESS (1.33s)
+❓ Question: Sakin ve dinlendirici bir tatil için hangi otel daha iyi, Zeugma mı Ayscha mı? Atmosferi tarif edin.
+�� Answer: Bu konuda detaylı bilgim bulunmuyor. 
+---
+[Test 25/100] [Ayscha/de] SUCCESS (1.44s)
+❓ Question: Was sind die Öffnungszeiten des Hauptschwimmbads und des Kinderbeckens?
+�� Answer: Ich habe keine detaillierten Informationen zu diesem Thema.
+---
+[Test 26/100] [Zeugma/ru] SUCCESS (1.45s)
+❓ Question: Какие часы работы главного бассейна и детского бассейна?
+�� Answer: У меня нет информации о часах работы бассейнов.
+---
+[Test 27/100] [Zeugma/de] SUCCESS (1.57s)
+❓ Question: Gibt es ein Fitnesscenter und was sind die Öffnungszeiten?
+�� Answer: Das Fitnesszentrum ist täglich von 07:00 bis 19:00 Uhr geöffnet (ab 15 Jahren). 
+---
+[Test 28/100] [Zeugma/en] SUCCESS (1.45s)
+❓ Question: What are the check-in and check-out times, and can I request a late check-out?
+�� Answer: I don't have detailed information on this topic. 
+---
+[Test 29/100] [Belvil/ru] SUCCESS (2.46s)
+❓ Question: Расскажите обо всех ресторанах à la carte. Какая там кухня и взимается ли дополнительная плата?
+�� Answer: Ресторан Bloom Steak Wine предлагает блюда A la Carte. Кухня - стейки и вино. Он расположен в главном здании и вмещает 35 человек. Взимается дополнительная плата в размере 35 € с человека.  Ресторан Bloom предлагает средиземноморскую кухню A la Carte. Он расположен в главном здании и вмещает 35 человек. Взимается дополнительная плата в размере 5 €.  Ресторан Mirage предлагает итальянскую кухню A la Carte. Он расположен в главном здании и вмещает 40 человек. Взимается дополнительная плата в размере 5 €.  Ресторан Kanji предлагает дальневосточную кухню A la Carte. Он расположен в главном здании и вмещает 40 человек. Взимается дополнительная плата в размере 5 €.  Ресторан Dolce Vita предлагает рыбные блюда и морепродукты A la Carte. Он расположен на пляже и вмещает 70 человек. Взимается дополнительная плата в размере 5 €. 
+---
+[Test 30/100] [Ayscha/ru] SUCCESS (1.65s)
+❓ Question: Расскажите о пляже. Он песчаный? Полотенца и шезлонги бесплатные?
+�� Answer: Побережье - песчаный берег, длина пляжа 150 метров. Полотенца для пляжа и бассейна, шезлонги и зонтики от солнца предоставляются бесплатно. 
+---
+[Test 31/100] [Belvil/tr] SUCCESS (1.49s)
+❓ Question: Odalarda ve plajda Wi-Fi ücretsiz mi? Hızı nasıl?
+�� Answer: Odalarda kablosuz internet ücretsizdir. Wi-Fi hızı hakkında detaylı bir bilgiye sahip değilim.
+---
+[Test 32/100] [Zeugma/ru] SUCCESS (1.60s)
+❓ Question: Расскажите о пляже. Он песчаный? Полотенца и шезлонги бесплатные?
+�� Answer: Побережье песчаное, протяженность пляжа - 150 м. Полотенца для пляжа и бассейна, шезлонги и зонтики от солнца предоставляются бесплатно.
+---
+[Test 33/100] [Zeugma/ru] SUCCESS (1.55s)
+❓ Question: У меня аллергия на орехи. Как отель решает вопросы с пищевой аллергией в главном ресторане?
+�� Answer: По предварительному запросу гостей с особыми аллергическими реакциями, во всех наших ресторанах готовятся блюда в зависимости от их предпочтений. 
+---
+[Test 34/100] [Belvil/en] SUCCESS (1.57s)
+❓ Question: Tell me about all the à la carte restaurants. What type of cuisine are they and do they have an extra charge?
+�� Answer: Here is information about the à la carte restaurants:  *   **Bloom (Steak & Wine):** Steak & Wine cuisine, 35 € per person. *   **Bloom:** Mediterranean cuisine, 5 € per person. *   **Mirage:** Italian cuisine, 5 € per person. *   **Kanji:** Far East cuisine, 5 € per person. *   **Dolce Vita:** Fish & Seafood cuisine, 5 € per person.
+---
+[Test 35/100] [Belvil/tr] SUCCESS (1.45s)
+❓ Question: Spa var mı? Sunulan üç hizmeti listeleyin ve Türk hamamının ücretsiz olup olmadığını söyleyin.
+�� Answer: Yes, there is a Spa. The Reborn Spa & Wellness offers massage services in different disciplines, personalised packages, rituals and Children's Spa treatments. The use of the Turkish Bath is free of charge.
+---
+[Test 36/100] [Belvil/tr] SUCCESS (1.57s)
+❓ Question: Fitness merkezi var mı ve çalışma saatleri nedir?
+�� Answer: Fitness Merkezi'nin çalışma saatleri her gün 07:00-19:00 arasıdır (15 yaş ve üzeri).
+---
+[Test 37/100] [Zeugma/tr] SUCCESS (2.27s)
+❓ Question: 4-8 yaş arası çocuklar ve gençler için ne gibi aktiviteler mevcut?
+�� Answer: 4-7 ve 8-12 yaş grupları için Papy Kids Sports Academy kapsamında futbol dersleri verilmektedir. Ayrıca Papy Kids Club'da çeşitli aktiviteler bulunmaktadır: havuz oyunları, boccia, su topu, dart, futbol, masa tenisi, olimpiyatlar, lego, playstation, nerf, mini bowling, mini basket, baloncuk oyunu, sanat atölyesi, resim yapımı, kanvas resim, ahşap atölyesi, anahtarlık yapma, origama, takı yapımı, oyuncak yapımı, rüya kapanı ve sanat terapisi.
+---
+[Test 38/100] [Zeugma/de] SUCCESS (1.46s)
+❓ Question: Wie sind die Check-in- und Check-out-Zeiten und kann ich einen späten Check-out beantragen?
+�� Answer: Ich habe keine detaillierten Informationen zu diesem Thema.
+---
+[Test 39/100] [Ayscha/ru] SUCCESS (2.15s)
+❓ Question: Перечислите все бары. Какие из них открыты 24/7?
+�� Answer: В отеле есть следующие бары: Lobby Bar, Martini Bar, Винный погреб, Beach Bar, Select Villa Pool Bar, Pool Bar, Harmony Patisserie, PA CO, Pasha Lounge, Disco Bar, Pier Bar (15.05-15.10).  Martini Bar открыт 24 часа в сутки, 7 дней в неделю.
+---
+[Test 40/100] [Belvil/tr] SUCCESS (1.57s)
+❓ Question: Antalya havalimanından otele nasıl giderim? Servisiniz var mı?
+�� Answer: Antalya Havaalanı 35 km uzaklıktadır. Otelimizde ücretli araç kiralama hizmeti bulunmaktadır.
+---
+[Test 41/100] [Ayscha/ru] SUCCESS (4.67s)
+❓ Question: Расскажите обо всех ресторанах à la carte. Какая там кухня и взимается ли дополнительная плата?
+�� Answer: В отеле есть следующие рестораны A la Carte:  *   **Surf Turf:** Стейк и морепродукты. Ужин, 18:30 - 21:30. Расположение: Терраса главного здания. Вместимость: 32 человека. Платно: 50 € с человека. *   **Safran:** Современная Турецкая кухня. Ужин, 18:30 - 21:30. Расположение: Главное здание. Вместимость: 40 человек. Платно: 5 € с человека. *   **Mikado:** Дальневосточная кухня. Ужин, 18:30 - 21:30. Расположение: Главное здание. Вместимость: 50 человек. Платно: 5 € с человека. *   **Mikado (01.05-31.10):** Теппанъяки. Ужин, 18:30 - 21:30. Расположение: Главное здание. Вместимость: 12 человек. *   **Coral (15.04-31.10):** Рыба и морепродукты. Ужин, 18:30 - 21:30. Расположение: Пляж. Вместимость: 60 человек. Платно: 5 € с человека. *   **Viccolo (01.05-31.10):** Итальянская кухня. Ужин, 18:30 - 21:30. Расположение: Пляж. Вместимость: 50 человек. Платно: 5 € с человека. *   **Taco (15.05-31.10):** Мексиканская кухня. Ужин, 18:30 - 21:30. Расположение: Select Villa. Вместимость: 40 человек. Платно: 5 € с человека.  Важные примечания:  *   Во всех ресторанах Ala Carte требуется предварительная резервация, также и для гостей, проживающих на виллах. *   За посещение ресторана SURF N TURF взимается дополнительная плата в размере 50 € с человека. Дополнительные блюда, которые можно выбрать из меню ресторана SURF N TURF, оплачиваются по прайс-листу. *   Зона Teppanyaki в ресторане MIKADO платная и оплачивается согласно выбранному сет-меню. *   Для детей в возрасте от 0 до 6 лет пользование A la Carte бесплатно. 
+---
+[Test 42/100] [Belvil/de] SUCCESS (1.42s)
+❓ Question: Sind Haustiere in den Hotelzimmern erlaubt?
+�� Answer: Evcil hayvan kabul edilmez. 
+---
+[Test 43/100] [Ayscha/tr] SUCCESS (1.39s)
+❓ Question: Otel odalarına evcil hayvan kabul ediliyor mu?
+�� Answer: Evcil hayvan kabul edilmez. 
+---
+[Test 44/100] [Belvil/ru] SUCCESS (1.45s)
+❓ Question: Бесплатный ли Wi-Fi в номерах и на пляже? Какая скорость?
+�� Answer: Wi-Fi - Интернет предоставляется бесплатно. У меня нет информации о скорости Wi-Fi. 
+---
+[Test 45/100] [Ayscha/en] SUCCESS (1.48s)
+❓ Question: What are the check-in and check-out times, and can I request a late check-out?
+�� Answer: I don't have detailed information on this topic. 
+---
+[Test 46/100] [Ayscha/tr] SUCCESS (1.51s)
+❓ Question: Fındığa alerjim var. Ana restoranda gıda alerjileri konusunda nasıl bir uygulama var?
+�� Answer: Ana restoranda, istek doğrultusunda özel alerjisi olan misafirlere, önceden belirtmeleri dahilinde istedikleri yiyecekler hazırlanır.
+---
+[Test 47/100] [Ayscha/tr] SUCCESS (1.36s)
+❓ Question: Sakin ve dinlendirici bir tatil için hangi otel daha iyi, Zeugma mı Ayscha mı? Atmosferi tarif edin.
+�� Answer: Bu konuda detaylı bilgim bulunmuyor. 
+---
+[Test 48/100] [Zeugma/tr] SUCCESS (1.54s)
+❓ Question: Rezervasyonumla ilgili bir sorun hakkında bir insan temsilciyle konuşmam gerekiyor.
+�� Answer: Anladım, sizi bir müşteri temsilcisine bağlamamı ister misiniz?
+---
+[Test 49/100] [Ayscha/ru] SUCCESS (1.94s)
+❓ Question: Перечислите все бары. Какие из них открыты 24/7?
+�� Answer: В отеле есть следующие бары: Lobby Bar, Martini Bar, Винный погреб, Beach Bar, Select Villa Pool Bar, Pool Bar, Harmony Patisserie, PA CO, Pasha Lounge, Disco Bar, Pier Bar (15.05-15.10).  Martini Bar открыт 24 часа в сутки, 7 дней в неделю. 
+---
+[Test 50/100] [Zeugma/de] SUCCESS (1.13s)
+❓ Question: Welches Hotel ist besser für einen ruhigen, erholsamen Urlaub, Zeugma oder Ayscha? Beschreiben Sie die Atmosphäre.
+�� Answer: I don't have detailed information on this topic. 
+---
+[Test 51/100] [Zeugma/de] SUCCESS (1.60s)
+❓ Question: Gibt es ein Spa? Nennen Sie drei angebotene Dienstleistungen und sagen Sie mir, ob das türkische Bad kostenlos ist.
+�� Answer: Ja, es gibt ein Spa namens Reborn SPA Wellness. Es ist täglich von 09:00 bis 19:30 Uhr geöffnet.  Drei angebotene Dienstleistungen sind: * Massagen * Haut- und Körperpflege * Kryokabine  Die Nutzung des Türkischen Bades ist kostenlos.
+---
+[Test 52/100] [Ayscha/de] SUCCESS (1.46s)
+❓ Question: Welche Art von Abendunterhaltung oder Shows kann ich erwarten?
+�� Answer: Professionelle Tanzshows, Akrobatik-Shows, Themenpartys, Open-Air-Disco, Festivals, Live-Musik, Karaoke, Klavierkonzert und Open-Air-Kino.
+---
+[Test 53/100] [Ayscha/en] SUCCESS (1.83s)
+❓ Question: What activities are available for children aged 4-8 versus teenagers?
+�� Answer: For children enrolled in the Papy Kids Sports Academy, which is available between May and October, football, swimming, and tennis lessons are available. Free group lessons are given 6 days a week for 2 age groups, 4-7 and 8-12. I don't have detailed information on activities for teenagers. 
+---
+[Test 54/100] [Zeugma/en] SUCCESS (1.40s)
+❓ Question: Is there a spa? List three services offered and tell me if the Turkish bath is free.
+�� Answer: Yes, there is a spa called Reborn SPA Wellness. It offers massage services, specialized packages, and beauty treatments. The Turkish bath is free to use. 
+---
+[Test 55/100] [Ayscha/de] SUCCESS (2.51s)
+❓ Question: Erzählen Sie mir von allen À-la-carte-Restaurants. Welche Art von Küche bieten sie an und kosten sie extra?
+�� Answer: Hier sind die À-la-carte-Restaurants mit Küchenart und zusätzlichen Kosten:  *   Surf Turf: Steak Meeresfrüchte, 50 € *   Safran: Moderne Türkische Küche, 5 € *   Mikado: Fernost, 5 € *   Mikado Teppanyaki (01.05-31.10): Nicht angegeben, wird nach dem gewählten Menü abgerechnet. *   Coral (15.04-31.10): Fisch Meeresfrüchte, 5 € *   Viccolo: Italienisch (01.05-31.10), 5 € *   Taco: Mexikanisch (15.05-31.10), 5 €
+---
+[Test 56/100] [Belvil/tr] SUCCESS (2.33s)
+❓ Question: Tüm à la carte restoranlar hakkında bilgi verin. Mutfak türleri nedir ve ekstra ücretli midir?
+�� Answer: Akşam A la Carte restoranlarının listesi ve bilgileri aşağıdaki gibidir:  *   **Bloom Steak Wine:** A la Carte Akşam Yemeği, ücretli, kişi başı 35 €. *   **Bloom Akdeniz:** A la Carte Akşam Yemeği, 5 € ücretli. *   **Mirage İtalyan:** A la Carte Akşam Yemeği, 5 € ücretli. *   **Kanji Uzak Doğu:** A la Carte Akşam Yemeği, 5 € ücretli. *   **Dolce Vita Deniz Ürünleri:** A la Carte Akşam Yemeği, 5 € ücretli.
+---
+[Test 57/100] [Ayscha/ru] SUCCESS (1.81s)
+❓ Question: Есть ли фитнес-центр и какие у него часы работы?
+�� Answer: Фитнес-центр работает ежедневно с 07:00 до 19:00. 
+---
+[Test 58/100] [Ayscha/ru] SUCCESS (1.48s)
+❓ Question: Как добраться до отеля из аэропорта Анталии? Предлагаете ли вы трансфер?
+�� Answer: Отель находится в 35 км от аэропорта Антальи. У меня нет подробной информации о трансфере. 
+---
+[Test 59/100] [Zeugma/en] SUCCESS (1.33s)
+❓ Question: Is there a spa? List three services offered and tell me if the Turkish bath is free.
+�� Answer: Yes, there is a spa called Reborn SPA Wellness. It offers massage services, specialized packages, and beauty treatments. The Turkish bath is free to use. 
+---
+[Test 60/100] [Zeugma/ru] SUCCESS (1.47s)
+❓ Question: Разрешено ли размещение с домашними животными в номерах отеля?
+�� Answer: Домашние животные не принимаются. 
+---
+[Test 61/100] [Zeugma/en] SUCCESS (1.24s)
+❓ Question: Is the Wi-Fi free in the rooms and on the beach? How is the speed?
+�� Answer: WI-FI is free. I don't have detailed information on this topic. 
+---
+[Test 62/100] [Belvil/ru] SUCCESS (1.55s)
+❓ Question: Какие часы работы главного бассейна и детского бассейна?
+�� Answer: У меня нет подробной информации по этому вопросу. 
+---
+[Test 63/100] [Zeugma/de] SUCCESS (1.64s)
+❓ Question: Gibt es ein Fitnesscenter und was sind die Öffnungszeiten?
+�� Answer: Das Fitnesszentrum ist täglich von 07:00 bis 19:00 Uhr geöffnet (ab 15 Jahren). 
+---
+[Test 64/100] [Zeugma/ru] SUCCESS (1.55s)
+❓ Question: Есть ли спа? Перечислите три предлагаемые услуги и скажите, бесплатная ли турецкая баня.
+�� Answer: Да, Reborn SPA Wellness предоставляет услуги ежедневно с 09:00 до 19:30. Три предлагаемые услуги: массаж, уход за кожей лица и тела, VIP-зона и СПА. Посещение турецкой бани бесплатно. 
+---
+[Test 65/100] [Ayscha/de] SUCCESS (1.75s)
+❓ Question: Gibt es ein Spa? Nennen Sie drei angebotene Dienstleistungen und sagen Sie mir, ob das türkische Bad kostenlos ist.
+�� Answer: Es gibt ein Spa namens Reborn SPA Welness. Es ist jeden Tag von 09:00 bis 19:30 Uhr geöffnet. Hier sind drei Dienstleistungen, die angeboten werden: Massagen, Haut- und Körperpflege und VIP-Bereich und SPA. Die Benutzung des Türkischen Bades ist kostenlos.
+---
+[Test 66/100] [Belvil/tr] SUCCESS (1.40s)
+❓ Question: Sakin ve dinlendirici bir tatil için hangi otel daha iyi, Zeugma mı Ayscha mı? Atmosferi tarif edin.
+�� Answer: Bu konuda detaylı bilgim bulunmuyor. 
+---
+[Test 67/100] [Belvil/tr] SUCCESS (1.45s)
+❓ Question: Spa var mı? Sunulan üç hizmeti listeleyin ve Türk hamamının ücretsiz olup olmadığını söyleyin.
+�� Answer: Reborn Spa & Wellness is available. The text lists massage services, personalized packages, and rituals. The use of the Turkish Bath is free of charge. 
+---
+[Test 68/100] [Zeugma/ru] SUCCESS (1.38s)
+❓ Question: Как добраться до отеля из аэропорта Анталии? Предлагаете ли вы трансфер?
+�� Answer: У меня нет подробной информации по этому вопросу. 
+---
+[Test 69/100] [Ayscha/en] SUCCESS (1.42s)
+❓ Question: Is there a fitness center and what are its operating hours?
+�� Answer: Yes, there is a fitness center. It is open every day from 07:00 to 19:00 for individuals aged 15 and older. 
+---
+[Test 70/100] [Ayscha/ru] SUCCESS (1.77s)
+❓ Question: Перечислите все бары. Какие из них открыты 24/7?
+�� Answer: В Papillon Ayscha есть следующие бары: Lobby Bar, Martini Bar, Винный погреб, Beach Bar, Select Villa Pool Bar, Pool Bar, Harmony Patisserie, PA CO, Pasha Lounge, Disco Bar, Pier Bar (15.05-15.10).  Martini Bar открыт 24 часа.
+---
+[Test 71/100] [Zeugma/de] SUCCESS (2.23s)
+❓ Question: Welche Aktivitäten gibt es für Kinder im Alter von 4-8 Jahren im Vergleich zu Teenagern?
+�� Answer: Für Kinder im Papy Kids Club gibt es Aktivitäten wie Pool-Spiele, Boccia, Wasserpolo, Darts, Fußball, Tischtennis, Olympiaden, Lego, Playstation, Nerf, Mini-Bowling, Mini-Basket, Seifenblasen-Spiel, Kunstwerkstatt, Malen, Malerei auf Leinwand, Holz-Workshop, Herstellung von Schlüsselanhängern, Origami, Schmuckherstellung, Spielzeugherstellung, Traumfänger und Kunsttherapie. Es gibt auch Sportarten wie Tennis, Schwimmen, Fußball und Yoga.  Für Teenager gibt es einen Jugendzimmer im Papy Kids Club. Außerdem werden verschiedene Turniere wie Fußball, Beachvolleyball, Basketball, Wasserpolo, Luftgewehr, Dart, Boccia, Tischtennis, Tischfußball, Bingo und Badminton angeboten.
+---
+[Test 72/100] [Ayscha/en] SUCCESS (1.45s)
+❓ Question: Are pets allowed in the hotel rooms?
+�� Answer: Pets are not allowed. 
+---
+[Test 73/100] [Ayscha/de] SUCCESS (1.35s)
+❓ Question: Ist das WLAN in den Zimmern und am Strand kostenlos? Wie ist die Geschwindigkeit?
+�� Answer: WLAN-Internet ist kostenlos. Ich habe keine detaillierten Informationen zur Geschwindigkeit.
+---
+[Test 74/100] [Ayscha/de] SUCCESS (1.58s)
+❓ Question: Wie sind die Check-in- und Check-out-Zeiten und kann ich einen späten Check-out beantragen?
+�� Answer: Ich habe keine detaillierten Informationen zu diesem Thema.
+---
+[Test 75/100] [Belvil/tr] SUCCESS (1.75s)
+❓ Question: Tüm barları listeleyin. Hangileri 7/24 açık?
+�� Answer: Bugün Papillon Belvil'deki barlar şunlardır: Mirage Bar, Afrodite Bar, Blue Bar, Alacarte Bar, Aqua Bar, Bloom Lounge, Disco Bar ve Blue Pool Bar.  Bloom Lounge 7/24 açıktır.
+---
+[Test 76/100] [Zeugma/en] SUCCESS (2.19s)
+❓ Question: What activities are available for children aged 4-8 versus teenagers?
+�� Answer: For children, there is the Papy Kids Club and the Papy Kids Sports Academy. Activities include a Lego Room, Cinema Room, Baby Care Room, Baby Sleeping Room, Baby Game Room, Playstation Room, Art Workshop, Hobby Workshop, Youth Room, and Outdoor Game Area. There is also a Papy Kids Carnival, Baloon Shows, Science Shows, Magician Shows, Space Shows, Clown Shows, Face Painting, Cinema, Mini Disco, Kids Party, Pool Games, Boccia, Water Polo, Dart, Football, Table Tennis, Olympics, Lego, Playstation, Nerf, Mini Bowling, Mini Basketball, Bubble Game, Art Workshop, Painting, Canvas Art, Wood Workshop, Keychain Making, Origami, Jewelry Making, Toy Making, Dreamcatcher, Art Therapy, Tennis, Swimming, Football, and Yoga.  I don't have detailed information on activities specifically for teenagers. 
+---
+[Test 77/100] [Ayscha/de] SUCCESS (1.41s)
+❓ Question: Wie sind die Check-in- und Check-out-Zeiten und kann ich einen späten Check-out beantragen?
+�� Answer: Ich habe keine detaillierten Informationen zu diesem Thema.
+---
+[Test 78/100] [Ayscha/en] SUCCESS (1.58s)
+❓ Question: I am allergic to nuts. How does the hotel handle food allergies in the main restaurant?
+�� Answer: Upon request, special food requests can be prepared for guests with specific allergies in all our restaurants, if they specify in advance. 
+---
+[Test 79/100] [Belvil/ru] SUCCESS (1.58s)
+❓ Question: Мне нужно поговорить с представителем о проблеме с моим бронированием.
+�� Answer: Я понимаю. Хотите, я соединю вас с представителем службы поддержки?
+---
+[Test 80/100] [Zeugma/en] SUCCESS (1.44s)
+❓ Question: How do I get to the hotel from Antalya airport? Do you offer a shuttle?
+�� Answer: Antalya Airport is 35 km from the hotel. I don't have detailed information on this topic. 
+---
+[Test 81/100] [Ayscha/ru] SUCCESS (1.44s)
+❓ Question: Какое время заезда и выезда, и могу ли я запросить поздний выезд?
+�� Answer: У меня нет подробной информации по этому вопросу. 
+---
+[Test 82/100] [Zeugma/ru] SUCCESS (1.60s)
+❓ Question: Бесплатный ли Wi-Fi в номерах и на пляже? Какая скорость?
+�� Answer: Wi-Fi - Интернет предоставляется бесплатно. У меня нет информации о скорости Wi-Fi. 
+---
+[Test 83/100] [Belvil/en] SUCCESS (1.38s)
+❓ Question: What kind of evening entertainment or shows can I expect?
+�� Answer: We have professional dance shows, live music, foam parties, sunset parties, a disco, piano concerts, karaoke, outdoor cinema, acrobatics shows, musical shows, theme parties and festivals.
+---
+[Test 84/100] [Belvil/de] SUCCESS (1.63s)
+❓ Question: Listen Sie alle Bars auf. Welche sind rund um die Uhr geöffnet?
+�� Answer: Bloom Lounge Wine Celler Mirage Bar Aphrodite Lobby Bar Beach Bar Aqua Bar Pasha Lounge Disco bar Blue Pool Bar Anfitiyatro Food Court Belle Vue Mirage Patisserie PA CO Coffee House  Die Bloom Lounge ist rund um die Uhr geöffnet. Die Mirage Bar ist von 22:00 bis 09:00 geöffnet.
+---
+[Test 85/100] [Belvil/ru] SUCCESS (1.30s)
+❓ Question: Как добраться до отеля из аэропорта Анталии? Предлагаете ли вы трансфер?
+�� Answer: У меня нет подробной информации по этому вопросу. 
+---
+[Test 86/100] [Zeugma/en] SUCCESS (1.86s)
+❓ Question: What activities are available for children aged 4-8 versus teenagers?
+�� Answer: For children, Papy Kids Club offers activities such as Papy Kids Carnival, Baloon Shows, Science Shows, Magician Shows, Space Shows, Clown Shows, Face Painting, Cinema, Mini Disco, Kids Party Activities, Pool Games, Boccia, Water Polo, Dart, Football, Table Tennis, Olympics, Lego, Playstation, Nerf, Mini Bowling, Mini Basketball, Bubble Game, Art Workshop, Painting, Canvas Art, Wood Workshop, Keychain Making, Origami, Jewelry Making, Toy Making, Dreamcatcher, and Art Therapy. Papy Kids Sports Academy offers Football, Swimming and Tennis.  I don't have detailed information on activities for teenagers. 
+---
+[Test 87/100] [Zeugma/de] SUCCESS (1.46s)
+❓ Question: Gibt es ein Fitnesscenter und was sind die Öffnungszeiten?
+�� Answer: Das Fitnesszentrum ist täglich von 07:00 bis 19:00 Uhr geöffnet (ab 15 Jahren).
+---
+[Test 88/100] [Ayscha/de] SUCCESS (1.41s)
+❓ Question: Ist das WLAN in den Zimmern und am Strand kostenlos? Wie ist die Geschwindigkeit?
+�� Answer: WLAN ist in den Zimmern kostenlos. Ich habe keine detaillierten Informationen zur Geschwindigkeit.
+---
+[Test 89/100] [Belvil/tr] SUCCESS (1.40s)
+❓ Question: Fındığa alerjim var. Ana restoranda gıda alerjileri konusunda nasıl bir uygulama var?
+�� Answer: İstek doğrultusunda tüm restoranlarımızda özel alerjisi olan misafirlere, önceden belirtmeleri dahilinde istedikleri yiyecekler hazırlanır.
+---
+[Test 90/100] [Ayscha/en] SUCCESS (1.38s)
+❓ Question: I am allergic to nuts. How does the hotel handle food allergies in the main restaurant?
+�� Answer: Upon request, special food requests can be prepared for guests with specific allergies in all our restaurants, if they specify in advance. 
+---
+[Test 91/100] [Zeugma/ru] SUCCESS (1.85s)
+❓ Question: У меня аллергия на орехи. Как отель решает вопросы с пищевой аллергией в главном ресторане?
+�� Answer: По предварительному запросу гостей с особыми аллергическими реакциями, во всех наших ресторанах готовятся блюда в зависимости от их предпочтений.
+---
+[Test 92/100] [Zeugma/en] SUCCESS (1.34s)
+❓ Question: I am allergic to nuts. How does the hotel handle food allergies in the main restaurant?
+�� Answer: For guests with special allergies, upon request, the food they want is prepared in all our restaurants, if they specify in advance.
+---
+[Test 93/100] [Belvil/en] SUCCESS (2.41s)
+❓ Question: Tell me about all the à la carte restaurants. What type of cuisine are they and do they have an extra charge?
+�� Answer: Here is information about the à la carte restaurants:  *   **Bloom (Steak & Wine):** Steak & Wine cuisine, open 18:30-21:30, located in the Main Building, 35 Pax capacity, Paid (35 €). *   **Bloom:** Mediterranean cuisine, open 18:30-21:30, located in the Main Building, 35 Pax capacity, Paid (5 €). *   **Mirage:** Italian cuisine, open 18:30-21:30, located in the Main Building, 40 Pax capacity, Paid (5 €). *   **Kanji:** Far East cuisine, open 18:30-21:30, located in the Main Building, 40 Pax capacity, Paid (5 €). *   **Dolce Vita:** Fish & Seafood cuisine, open 18:30-21:30, located on the Beach, 70 Pax capacity, Paid (5 €).
+---
+[Test 94/100] [Zeugma/tr] SUCCESS (1.27s)
+❓ Question: Ana yüzme havuzu ve çocuk havuzunun çalışma saatleri nedir?
+�� Answer: Bu konuda detaylı bilgim bulunmuyor.
+---
+[Test 95/100] [Zeugma/de] SUCCESS (1.28s)
+❓ Question: Ich muss mit einem menschlichen Mitarbeiter über ein Problem mit meiner Buchung sprechen.
+�� Answer: Ich verstehe. Möchten Sie, dass ich Sie mit einem Kundendienstmitarbeiter verbinde?
+---
+[Test 96/100] [Ayscha/en] SUCCESS (1.28s)
+❓ Question: Tell me about the beach. Is it sandy? Are towels and sunbeds complimentary?
+�� Answer: The beach condition is sandy, and beach towels and sunbeds are free. 
+---
+[Test 97/100] [Ayscha/en] SUCCESS (1.21s)
+❓ Question: What are the check-in and check-out times, and can I request a late check-out?
+�� Answer: I don't have detailed information on this topic. 
+---
+[Test 98/100] [Zeugma/tr] SUCCESS (1.27s)
+❓ Question: Sakin ve dinlendirici bir tatil için hangi otel daha iyi, Zeugma mı Ayscha mı? Atmosferi tarif edin.
+�� Answer: Bu konuda detaylı bilgim bulunmuyor. 
+---
+[Test 99/100] [Zeugma/en] SUCCESS (1.15s)
+❓ Question: Are pets allowed in the hotel rooms?
+�� Answer: Pets are not allowed. 
+---
+[Test 100/100] [Belvil/ru] SUCCESS (1.45s)
+❓ Question: Как добраться до отеля из аэропорта Анталии? Предлагаете ли вы трансфер?
+�� Answer: У меня нет подробной информации по этому вопросу. 
+---

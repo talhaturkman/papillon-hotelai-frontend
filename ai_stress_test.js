@@ -1,264 +1,143 @@
 const axios = require('axios');
+const fs = require('fs');
 
-const API_URL = 'http://localhost:5002/api/chat/message';
+const API_BASE_URL = 'http://localhost:5002';
+const TOTAL_TESTS = 100;
 
-const testQuestions = [
-    // GENEL - 5 soru
-    'Merhaba, size nasıl ulaşabilirim?',
-    'Papillon Hotels hakkında bilgi verir misiniz?', 
-    'Kaç otel var ve isimleri neler?',
-    'En popüler otelınız hangisi?',
-    'Aileler için en uygun otel hangisi?',
-    
-    // OTEL TANIMA - 15 soru
-    'Ben Belvil\'de kalıyorum',
-    'Zeugma\'da konaklıyorum', 
-    'Ayscha otelindeyim',
-    'I\'m staying at Belvil',
-    'We are at Zeugma hotel',
-    'Papillon Ayscha\'da misafirim',
-    'Belvil\'den yazıyorum',
-    'Zeugma\'dan merhaba',
-    'Ayscha\'dayım, yardım',
-    'I need help at Belvil',
-    'Zeugma hotel guest here',
-    'From Ayscha hotel',
-    'Ben Belvil müşterisi',
-    'Zeugma konuğuyum',
-    'Ayscha\'da tatildeyim',
-    
-    // RESTORAN - 20 soru
-    'Restoran bilgileri verir misiniz?',
-    'Kaç restoran var?',
-    'Ana restoran açılış saatleri nedir?',
-    'A la carte restoranlar var mı?',
-    'Çocuk menüsü var mı?',
-    'Vegan yemek seçenekleri var mı?',
-    'Akşam yemeği kaçta bitiyor?',
-    'Rezervasyon gerekli mi?',
-    'Hangi mutfaklar mevcut?',
-    'Beach restaurant var mı?',
-    'Restoran kapasiteleri nedir?',
-    'Büfe restoranlar hangileri?',
-    'İtalyan restoranı var mı?',
-    'Deniz ürünleri restoranı?',
-    'Kahvaltı kaçtan kaça?',
-    'Öğle yemeği saatleri?',
-    'Gece açık restoran var mı?',
-    'Room service var mı?',
-    'Vegetarian menü mevcut mu?',
-    'Local food servisi?',
-    
-    // SPA & WELLNESS - 15 soru
-    'SPA saatleri nedir?',
-    'Masaj fiyatları nedir?',
-    'Türk hamamı var mı?',
-    'Sauna ücretsiz mi?',
-    'SPA rezervasyonu nasıl yapılır?',
-    'Çift masajı yapıyor musunuz?',
-    'SPA\'da hangi hizmetler ücretsiz?',
-    'Fitness merkezi var mı?',
-    'SPA package fiyatları?',
-    'Facial treatment var mı?',
-    'Hot stone massage?',
-    'Aromatherapy massage?',
-    'Body wrap hizmeti?',
-    'Manicure pedicure?',
-    'SPA açılış günleri?',
-    
-    // HAVUZ - 10 soru  
-    'Kaç havuz var?',
-    'Havuz saatleri nedir?',
-    'Aquapark var mı?',
-    'Çocuk havuzu var mı?',
-    'Kapalı havuz var mı?',
-    'Havuz başı servis var mı?',
-    'Water slides var mı?',
-    'Infinity pool var mı?',
-    'Pool bar mevcut mu?',
-    'Havuz animasyonu var mı?',
-    
-    // ODA - 15 soru
-    'Oda tipleri nelerdir?',
-    'Deniz manzaralı oda var mı?',
-    'Aile odaları mevcut mu?', 
-    'Suit oda özellikleri neler?',
-    'Odada minibar var mı?',
-    'Balkonlu odalar var mı?',
-    'Oda servisi var mı?',
-    'WiFi ücretsiz mi?',
-    'Executive room nedir?',
-    'Connecting rooms var mı?',
-    'Oda büyüklükleri nedir?',
-    'Extra bed mümkün mü?',
-    'Baby crib var mı?',
-    'Safe box var mı?',
-    'Terrace room var mı?',
-    
-    // AKTİVİTE - 12 soru
-    'Hangi aktiviteler mevcut?',
-    'Gece eğlenceleri neler?',
-    'Çocuk kulübü var mı?',
-    'Spor aktiviteleri neler?',
-    'Plaj aktiviteleri var mı?',
-    'Animasyon takımı var mı?',
-    'Gece kulübü var mı?',
-    'Tenis kortu var mı?',
-    'Water sports mevcut mu?',
-    'Kids club saatleri?',
-    'Live music var mı?',
-    'Dance show var mı?',
-    
-    // KONUM & ULAŞIM - 10 soru
-    'Havaalanına uzaklık nedir?',
-    'Şehir merkezine kaç km?',
-    'Transfer hizmeti var mı?',
-    'Yakındaki alışveriş merkezi nerede?',
-    'Beach club nasıl gidilir?',
-    'Yakın hastane var mı?',
-    'Taxi çağırabilir misiniz?',
-    'Public transport var mı?',
-    'Car rental hizmeti?',
-    'Shuttle service saatleri?'
-];
+const hotels = ['Belvil', 'Zeugma', 'Ayscha'];
+const languages = ['en', 'de', 'tr', 'ru'];
 
-class TestRunner {
-    constructor() {
-        this.results = [];
-        this.startTime = Date.now();
-        this.categories = {
-            'Success': 0,
-            'Failed': 0,
-            'HotelDetected': 0,
-            'ResponseTime': []
-        };
-    }
+const questionBank = {
+    en: [
+        "What are the check-in and check-out times, and can I request a late check-out?",
+        "Tell me about all the à la carte restaurants. What type of cuisine are they and do they have an extra charge?",
+        "What are the operating hours for the main swimming pool and the kids' pool?",
+        "Is there a spa? List three services offered and tell me if the Turkish bath is free.",
+        "What activities are available for children aged 4-8 versus teenagers?",
+        "Is the Wi-Fi free in the rooms and on the beach? How is the speed?",
+        "I am allergic to nuts. How does the hotel handle food allergies in the main restaurant?",
+        "List all the bars. Which ones are open 24/7?",
+        "I need to speak to a human representative about a problem with my booking.",
+        "Tell me about the beach. Is it sandy? Are towels and sunbeds complimentary?",
+        "Is there a fitness center and what are its operating hours?",
+        "What kind of evening entertainment or shows can I expect?",
+        "How do I get to the hotel from Antalya airport? Do you offer a shuttle?",
+        "Are pets allowed in the hotel rooms?",
+        "Which hotel is better for a quiet, relaxing holiday, Zeugma or Ayscha? Describe the atmosphere."
+    ],
+    de: [
+        "Wie sind die Check-in- und Check-out-Zeiten und kann ich einen späten Check-out beantragen?",
+        "Erzählen Sie mir von allen À-la-carte-Restaurants. Welche Art von Küche bieten sie an und kosten sie extra?",
+        "Was sind die Öffnungszeiten des Hauptschwimmbads und des Kinderbeckens?",
+        "Gibt es ein Spa? Nennen Sie drei angebotene Dienstleistungen und sagen Sie mir, ob das türkische Bad kostenlos ist.",
+        "Welche Aktivitäten gibt es für Kinder im Alter von 4-8 Jahren im Vergleich zu Teenagern?",
+        "Ist das WLAN in den Zimmern und am Strand kostenlos? Wie ist die Geschwindigkeit?",
+        "Ich bin allergisch gegen Nüsse. Wie geht das Hotel mit Lebensmittelallergien im Hauptrestaurant um?",
+        "Listen Sie alle Bars auf. Welche sind rund um die Uhr geöffnet?",
+        "Ich muss mit einem menschlichen Mitarbeiter über ein Problem mit meiner Buchung sprechen.",
+        "Erzählen Sie mir vom Strand. Ist er sandig? Sind Handtücher und Liegen kostenlos?",
+        "Gibt es ein Fitnesscenter und was sind die Öffnungszeiten?",
+        "Welche Art von Abendunterhaltung oder Shows kann ich erwarten?",
+        "Wie komme ich vom Flughafen Antalya zum Hotel? Bieten Sie einen Shuttle an?",
+        "Sind Haustiere in den Hotelzimmern erlaubt?",
+        "Welches Hotel ist besser für einen ruhigen, erholsamen Urlaub, Zeugma oder Ayscha? Beschreiben Sie die Atmosphäre."
+    ],
+    tr: [
+        "Giriş ve çıkış saatleri nedir ve geç çıkış talep edebilir miyim?",
+        "Tüm à la carte restoranlar hakkında bilgi verin. Mutfak türleri nedir ve ekstra ücretli midir?",
+        "Ana yüzme havuzu ve çocuk havuzunun çalışma saatleri nedir?",
+        "Spa var mı? Sunulan üç hizmeti listeleyin ve Türk hamamının ücretsiz olup olmadığını söyleyin.",
+        "4-8 yaş arası çocuklar ve gençler için ne gibi aktiviteler mevcut?",
+        "Odalarda ve plajda Wi-Fi ücretsiz mi? Hızı nasıl?",
+        "Fındığa alerjim var. Ana restoranda gıda alerjileri konusunda nasıl bir uygulama var?",
+        "Tüm barları listeleyin. Hangileri 7/24 açık?",
+        "Rezervasyonumla ilgili bir sorun hakkında bir insan temsilciyle konuşmam gerekiyor.",
+        "Plaj hakkında bilgi verin. Kumsal mı? Havlu ve şezlong ücretsiz mi?",
+        "Fitness merkezi var mı ve çalışma saatleri nedir?",
+        "Ne tür akşam eğlenceleri veya şovlar bekleyebilirim?",
+        "Antalya havalimanından otele nasıl giderim? Servisiniz var mı?",
+        "Otel odalarına evcil hayvan kabul ediliyor mu?",
+        "Sakin ve dinlendirici bir tatil için hangi otel daha iyi, Zeugma mı Ayscha mı? Atmosferi tarif edin."
+    ],
+    ru: [
+        "Какое время заезда и выезда, и могу ли я запросить поздний выезд?",
+        "Расскажите обо всех ресторанах à la carte. Какая там кухня и взимается ли дополнительная плата?",
+        "Какие часы работы главного бассейна и детского бассейна?",
+        "Есть ли спа? Перечислите три предлагаемые услуги и скажите, бесплатная ли турецкая баня.",
+        "Какие развлечения доступны для детей в возрасте 4-8 лет по сравнению с подростками?",
+        "Бесплатный ли Wi-Fi в номерах и на пляже? Какая скорость?",
+        "У меня аллергия на орехи. Как отель решает вопросы с пищевой аллергией в главном ресторане?",
+        "Перечислите все бары. Какие из них открыты 24/7?",
+        "Мне нужно поговорить с представителем о проблеме с моим бронированием.",
+        "Расскажите о пляже. Он песчаный? Полотенца и шезлонги бесплатные?",
+        "Есть ли фитнес-центр и какие у него часы работы?",
+        "Какие вечерние развлечения или шоу я могу ожидать?",
+        "Как добраться до отеля из аэропорта Анталии? Предлагаете ли вы трансфер?",
+        "Разрешено ли размещение с домашними животными в номерах отеля?",
+        "Какой отель лучше подходит для тихого, спокойного отдыха, Zeugma или Ayscha? Опишите атмосферу."
+    ]
+};
 
-    async runSingleTest(question, index) {
-        const startTime = Date.now();
-        
-        try {
-            console.log(`[${index + 1}/${testQuestions.length}] Testing: "${question}"`);
-            
-            const response = await axios.post(API_URL, {
-                message: question,
-                sessionId: `stress_test_${Date.now()}`
-            }, { timeout: 10000 });
-
-            const responseTime = Date.now() - startTime;
-            this.categories.ResponseTime.push(responseTime);
-
-            if (response.data.success) {
-                const aiResponse = response.data.response;
-                this.categories.Success++;
-                
-                // Check if hotel was detected
-                if (aiResponse.includes('Belvil') || aiResponse.includes('Zeugma') || aiResponse.includes('Ayscha')) {
-                    this.categories.HotelDetected++;
-                }
-                
-                const shortResponse = aiResponse.length > 100 
-                    ? aiResponse.substring(0, 100) + '...'
-                    : aiResponse;
-                
-                console.log(`✅ Success (${responseTime}ms): ${shortResponse}`);
-                
-                this.results.push({
-                    question,
-                    response: aiResponse,
-                    success: true,
-                    responseTime,
-                    index: index + 1
-                });
-            } else {
-                console.log(`❌ Failed: ${response.data.error}`);
-                this.categories.Failed++;
-                this.results.push({
-                    question,
-                    response: response.data.error,
-                    success: false,
-                    responseTime,
-                    index: index + 1
-                });
-            }
-        } catch (error) {
-            const responseTime = Date.now() - startTime;
-            console.log(`❌ Error (${responseTime}ms): ${error.message}`);
-            this.categories.Failed++;
-            this.categories.ResponseTime.push(responseTime);
-            
-            this.results.push({
-                question,
-                response: error.message,
-                success: false,
-                responseTime,
-                index: index + 1
-            });
-        }
-    }
-
-    generateReport() {
-        const totalTime = Date.now() - this.startTime;
-        const avgResponseTime = this.categories.ResponseTime.reduce((a, b) => a + b, 0) / this.categories.ResponseTime.length;
-        
-        console.log('\n' + '='.repeat(80));
-        console.log('🏆 AI STRES TEST RAPORU');
-        console.log('='.repeat(80));
-        console.log(`📊 Toplam Soru: ${testQuestions.length}`);
-        console.log(`✅ Başarılı: ${this.categories.Success} (%${((this.categories.Success / testQuestions.length) * 100).toFixed(1)})`);
-        console.log(`❌ Başarısız: ${this.categories.Failed} (%${((this.categories.Failed / testQuestions.length) * 100).toFixed(1)})`);
-        console.log(`🏨 Otel Algılanan: ${this.categories.HotelDetected} (%${((this.categories.HotelDetected / testQuestions.length) * 100).toFixed(1)})`);
-        console.log(`⚡ Ortalama Yanıt: ${Math.round(avgResponseTime)}ms`);
-        console.log(`⚡ En Hızlı: ${Math.min(...this.categories.ResponseTime)}ms`);
-        console.log(`⚡ En Yavaş: ${Math.max(...this.categories.ResponseTime)}ms`);
-        console.log(`⏱️ Toplam Süre: ${Math.round(totalTime / 1000)} saniye`);
-        
-        // Başarısız soruları göster
-        const failedQuestions = this.results.filter(r => !r.success);
-        if (failedQuestions.length > 0) {
-            console.log(`\n⚠️ BAŞARISIZ SORULAR (${failedQuestions.length} adet):`);
-            failedQuestions.slice(0, 10).forEach((result, i) => {
-                console.log(`${i + 1}. "${result.question}" - ${result.response}`);
-            });
-            if (failedQuestions.length > 10) {
-                console.log(`... ve ${failedQuestions.length - 10} adet daha`);
-            }
-        }
-        
-        // Yavaş yanıtları göster  
-        const slowResponses = this.results.filter(r => r.responseTime > 3000);
-        if (slowResponses.length > 0) {
-            console.log(`\n🐌 YAVAŞ YANITLAR (>3s, ${slowResponses.length} adet):`);
-            slowResponses.slice(0, 5).forEach((result, i) => {
-                console.log(`${i + 1}. "${result.question}" - ${result.responseTime}ms`);
-            });
-        }
-        
-        console.log('\n🎯 Test tamamlandı! AI sisteminin performansı analiz edildi.');
-    }
-
-    async runFullTest() {
-        console.log('🚀 PAPILLON AI KAPSAMLI STRES TESTİ');
-        console.log(`📋 ${testQuestions.length} soru test edilecek`);
-        console.log('⏳ Tahmini süre: 5-15 dakika\n');
-        
-        for (let i = 0; i < testQuestions.length; i++) {
-            await this.runSingleTest(testQuestions[i], i);
-            
-            // Progress update
-            if ((i + 1) % 10 === 0) {
-                const progress = ((i + 1) / testQuestions.length * 100).toFixed(1);
-                console.log(`\n📈 İlerleme: ${progress}% (${i + 1}/${testQuestions.length})\n`);
-            }
-            
-            // Rate limiting
-            await new Promise(resolve => setTimeout(resolve, 300));
-        }
-        
-        this.generateReport();
-    }
+function getRandomElement(arr) {
+    return arr[Math.floor(Math.random() * arr.length)];
 }
 
-// Testi başlat
-const testRunner = new TestRunner();
-testRunner.runFullTest().catch(console.error); 
+async function runStressTest() {
+    console.log(`��� Starting AI Stress Test: ${TOTAL_TESTS} randomized iterations...`);
+    console.log('================================================================');
+    
+    const logStream = fs.createWriteStream('stress_test_results.log', { flags: 'w' });
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (let i = 0; i < TOTAL_TESTS; i++) {
+        const testNum = i + 1;
+        const hotel = getRandomElement(hotels);
+        const lang = getRandomElement(languages);
+        const question = getRandomElement(questionBank[lang]);
+        const sessionId = `stress-test-${Date.now()}`;
+        
+        const logPrefix = `[Test ${testNum}/${TOTAL_TESTS}] [${hotel}/${lang}]`;
+        process.stdout.write(`\r${logPrefix} Running...`);
+
+        try {
+            const startTime = Date.now();
+            const response = await axios.post(`${API_BASE_URL}/api/chat`, {
+                message: question,
+                history: [
+                    { role: 'user', content: `I have a question about ${hotel}.` },
+                    { role: 'assistant', content: 'Of course, I can help with that.' }
+                ],
+                session_id: sessionId
+            }, { timeout: 45000 });
+            const duration = (Date.now() - startTime) / 1000;
+
+                const aiResponse = response.data.response;
+            if (aiResponse && aiResponse.length > 0) {
+                successCount++;
+                const logEntry = `${logPrefix} SUCCESS (${duration.toFixed(2)}s)\n❓ Question: ${question}\n�� Answer: ${aiResponse.replace(/\n/g, ' ')}\n---\n`;
+                logStream.write(logEntry);
+            } else {
+                throw new Error("Received empty response from AI.");
+            }
+
+        } catch (error) {
+            errorCount++;
+            const errorMessage = error.response ? JSON.stringify(error.response.data) : error.message;
+            const logEntry = `${logPrefix} FAILED\n❓ Question: ${question}\n❌ Error: ${errorMessage}\n---\n`;
+            logStream.write(logEntry);
+            console.error(`\n${logPrefix} FAILED. See stress_test_results.log for details.`);
+        }
+    }
+
+    logStream.end();
+    
+    console.log('\n================================================================');
+    console.log('��� AI Stress Test Finished.');
+    console.log(`\nFinal Report:\n`);
+    console.log(`  ✅ Successful Tests: ${successCount}/${TOTAL_TESTS}`);
+    console.log(`  ❌ Failed Tests:     ${errorCount}/${TOTAL_TESTS}`);
+    console.log(`\n��� A detailed log has been saved to: stress_test_results.log`);
+}
+
+runStressTest();

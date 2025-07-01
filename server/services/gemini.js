@@ -1,336 +1,170 @@
-const axios = require('axios');
-const naturalLanguageService = require('./naturalLanguage'); // Import the service
+const { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } = require('@google/generative-ai');
+const { getKnowledge, getHotel, getSpaCatalog } = require('./firebase');
+const { searchPlaces, getPlaceDetails, getPlacePhotoUrl } = require('./places');
+const { LanguageServiceClient } = require('@google-cloud/language');
+const translationService = require('./translation');
+
+const languageClient = new LanguageServiceClient();
+const supportedLanguages = ['tr', 'en', 'de', 'ru'];
+
+async function detectLanguage(text, history) {
+    // 1. Check for language in history first for "stickiness"
+    if (history && history.length > 0) {
+        const lastAiMessage = history.filter(m => m.role === 'assistant' || m.role === 'model').pop();
+        if (lastAiMessage && lastAiMessage.content) {
+            const langMatch = lastAiMessage.content.match(/\p{L}{4,}/gu);
+            if (langMatch) {
+                try {
+                    const [detections] = await languageClient.detectLanguage(langMatch[0]);
+                    if (detections && detections.languages && detections.languages.length > 0) {
+                        const lastLang = detections.languages[0].languageCode;
+                        if (supportedLanguages.includes(lastLang)) {
+                            console.log(`Sticking to language from history: ${lastLang}`);
+                            return lastLang;
+                        }
+                    }
+                } catch (error) {
+                    console.error('Could not detect language from history, proceeding with new detection.');
+                }
+            }
+        }
+    }
+
+    // 2. If no history, detect from the new message
+    try {
+        const [detections] = await languageClient.detectLanguage(text);
+        if (detections && detections.languages && detections.languages.length > 0) {
+            const detectedLang = detections.languages[0].languageCode;
+            if (supportedLanguages.includes(detectedLang)) {
+                console.log(`Language detected from message: ${detectedLang}`);
+                return detectedLang;
+            }
+        }
+    } catch (error) {
+        console.error('Error in Google language detection, falling back to default:', error);
+    }
+    
+    // 3. Default to Turkish
+    console.log('Falling back to default language: tr');
+    return 'tr';
+}
+
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 class GeminiService {
     constructor() {
-        this.apiKey = process.env.GEMINI_API_KEY;
-        this.model = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
-        this.apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent`;
-        
-        console.log(`��� Gemini API initialized: ${this.model}`);
-        if (!this.apiKey) {
-            console.error('❌ GEMINI_API_KEY not found in environment variables');
-        } else {
-            console.log(`��� API Key loaded: ${this.apiKey.substring(0, 10)}...`);
-        }
+        this.model = genAI.getGenerativeModel({
+            model: "gemini-1.5-pro-latest",
+        });
     }
 
-    async generateResponse(messages, knowledgeContext = null, detectedLanguage = 'tr') {
-        try {
-            let finalSystemPrompt;
-
-            if (knowledgeContext && knowledgeContext.trim().length > 0) {
-                // Scenario 1: We HAVE knowledge context. Force the AI to use it and only it.
-                const contextPrompts = {
-                    'tr': `Sen bir otel asistanısın. Kullanıcının sorusunu SADECE ve SADECE aşağıdaki Bilgi Metni'ni kullanarak yanıtla. Bu metnin dışına asla çıkma. Eğer cevap metinde yoksa, "Bu konuda detaylı bilgim bulunmuyor." de. Kullanıcıya ASLA hangi otelde olduğunu sorma, çünkü sana verilen bilgi zaten doğru otele aittir. Yanıtın mutlaka TÜRKÇE olmalı. KULLANICI BİR İNSAN, TEMSİLCİ VEYA CANLI DESTEK İLE GÖRÜŞMEK İSTERSE, BAŞKA HİÇBİR ŞEY YAZMADAN SADECE VE SADECE ŞUNU YAZ: [DESTEK_TALEBI]
-
-### Bilgi Metni ###
-${knowledgeContext}
-### Bilgi Metni Sonu ###`,
-                    'en': `You are a hotel assistant. Answer the user's question using ONLY the Information Text below. Never go outside of this text. If the answer is not in the text, say "I don't have detailed information on this topic." NEVER ask the user which hotel they are at, because the information provided is for the correct hotel. Your response must be in ENGLISH. IF THE USER WANTS TO SPEAK TO A HUMAN, AGENT, OR LIVE SUPPORT, RESPOND ONLY WITH THE FOLLOWING AND NOTHING ELSE: [DESTEK_TALEBI]
-
-### Information Text ###
-${knowledgeContext}
-### End of Information Text ###`,
-                    'de': `Sie sind ein Hotelassistent. Beantworten Sie die Frage des Benutzers NUR mit dem unten stehenden Informationstext. Verlassen Sie diesen Text niemals. Wenn die Antwort nicht im Text enthalten ist, sagen Sie "Ich habe keine detaillierten Informationen zu diesem Thema." Fragen Sie den Benutzer NIEMALS, in welchem Hotel er sich befindet, da die bereitgestellten Informationen für das richtige Hotel gelten. Ihre Antwort muss auf DEUTSCH sein. WENN DER BENUTZER MIT EINEM MENSCHEN, MITARBEITER ODER DEM LIVE-SUPPORT SPRECHEN MÖCHTE, ANTWORTEN SIE AUSSCHLIESSLICH MIT FOLGENDEM: [DESTEK_TALEBI]
-
-### Informationstext ###
-${knowledgeContext}
-### Ende des Informationstextes ###`,
-                    'ru': `Вы гостиничный ассистент. Отвечайте на вопрос пользователя, используя ТОЛЬКО приведенный ниже Информационный Текст. Никогда не выходите за рамки этого текста. Если ответа в тексте нет, скажите "У меня нет подробной информации по этому вопросу." НИКОГДА не спрашивайте пользователя, в каком отеле он находится, так как предоставленная информация относится к правильному отелю. Ваш ответ должен быть на РУССКОМ языке. ЕСЛИ ПОЛЬЗОВАТЕЛЬ ХОЧЕТ ПОГОВОРИТЬ С ЧЕЛОВЕКОМ, АГЕНТОМ ИЛИ СЛУЖБОЙ ПОДДЕРЖКИ, ОТВЕЧАЙТЕ ТОЛЬКО СЛЕДУЮЩИМ ОБРАЗОМ: [DESTEK_TALEBI]
-
-### Информационный Текст ###
-${knowledgeContext}
-### Конец Информационного Текста ###`
-                };
-                finalSystemPrompt = contextPrompts[detectedLanguage] || contextPrompts['tr'];
-            } else {
-                // Scenario 2: We have NO knowledge context. Use the general prompt that is allowed to ask questions.
+    async generateResponse(message, history, lang, hotel, knowledge) {
+        const getSystemPrompt = (lang, hotel, knowledge) => {
+            const getBasePrompt = () => {
                 const generalPrompts = {
-                    'tr': `Sen Papillon Hotels'in yapay zeka asistanısın. Papillon Hotels'un 3 oteli var: Belvil, Zeugma ve Ayscha. Eğer kullanıcı otel-spesifik bir soru sorarsa (oda, restoran, aktivite vb.) ve hangi otelden bahsettiğini belirtmezse, ona hangi otelde konakladığını sor: "Size daha doğru bilgi verebilmem için hangi Papillon otelinde konakladığınızı öğrenebilir miyim: Belvil, Zeugma veya Ayscha?" Diğer durumlarda soruları doğrudan yanıtla. Yanıtların her zaman TÜRKÇE olmalı. KULLANICI BİR İNSAN, TEMSİLCİ VEYA CANLI DESTEK İLE GÖRÜŞMEK İSTERSE, BAŞKA HİÇBİR ŞEY YAZMADAN SADECE VE SADECE ŞUNU YAZ: [DESTEK_TALEBI]`,
-                    'en': `You are the AI assistant for Papillon Hotels. Papillon Hotels has 3 properties: Belvil, Zeugma and Ayscha. If the user asks a hotel-specific question (e.g., about rooms, restaurants, activities) and does not specify which hotel they are talking about, ask them which hotel they are staying at: "To provide you with more accurate information, could you please let me know which Papillon hotel you are staying at: Belvil, Zeugma, or Ayscha?" Otherwise, answer the questions directly. Your responses must always be in ENGLISH. IF THE USER WANTS TO SPEAK TO A HUMAN, AGENT, OR LIVE SUPPORT, RESPOND ONLY WITH THE FOLLOWING AND NOTHING ELSE: [DESTEK_TALEBI]`,
-                    'de': `Sie sind der KI-Assistent für Papillon Hotels. Papillon Hotels hat 3 Häuser: Belvil, Zeugma und Ayscha. Wenn der Gast eine hotelspezifische Frage stellt (z. B. zu Zimmern, Restaurants, Aktivitäten) und nicht angibt, von welchem Hotel er spricht, fragen Sie ihn, in welchem Hotel er übernachtet: "Um Ihnen genauere Informationen geben zu können, könnten Sie mir bitte mitteilen, in welchem Papillon Hotel Sie übernachten: Belvil, Zeugma oder Ayscha?" Andernfalls beantworten Sie die Fragen direkt. Ihre Antworten müssen immer auf DEUTSCH sein. WENN DER BENUTZER MIT EINEM MENSCHEN, MITARBEITER ODER DEM LIVE-SUPPORT SPRECHEN MÖCHTE, ANTWORTEN SIE AUSSCHLIESSLICH MIT FOLGENDEM: [DESTEK_TALEBI]`,
-                    'ru': `Вы — AI-ассистент отелей Papillon. В сети Papillon 3 отеля: Belvil, Zeugma и Ayscha. Если гость задает вопрос, касающийся конкретного отеля (например, о номерах, ресторанах, мероприятиях), и не уточняет, о каком отеле идет речь, спросите его, в каком отеле он остановился: "Чтобы предоставить вам более точную информацию, не могли бы вы сообщить, в каком отеле Papillon вы остановились: Belvil, Zeugma или Ayscha?" В противном случае отвечайте на вопросы напрямую. Ваши ответы всегда должны быть на РУССКОМ языке. ЕСЛИ ПОЛЬЗОВАТЕЛЬ ХОЧЕТ ПОГОВОРИТЬ С ЧЕЛОВЕКОМ, АГЕНТОМ ИЛИ СЛУЖБОЙ ПОДДЕРЖКИ, ОТВЕЧАЙТЕ ТОЛЬКО СЛЕДУЮЩИМ ОБРАЗОМ: [DESTEK_TALEBI]`
+                    'tr': `Sen Papillon Hotels'in yapay zeka asistanısın. Papillon Hotels'un 3 oteli var: Belvil, Zeugma ve Ayscha. Eğer kullanıcı otel-spesifik bir soru sorarsa ve hangi otelden bahsettiğini belirtmezse, ona hangi otelde konakladığını sor. ÖNEMLİ: Eğer otel aktiviteleri, saatleri veya restoran detayları gibi spesifik bilgiler istenirse ve sana bu bilgiyi içeren bir Bilgi Metni verilmediyse, bu bilgiye sahip olmadığını belirtmelisin. Cevap uydurma. KULLANICI BİR İNSAN İLE GÖRÜŞMEK İSTERSE, SADECE ŞUNU YAZ: [DESTEK_TALEBI].`,
+                    'en': `You are the AI assistant for Papillon Hotels. Papillon Hotels has 3 properties: Belvil, Zeugma and Ayscha. If the user asks a hotel-specific question and does not specify which hotel, ask them. IMPORTANT: If asked for specific details like hotel activities, hours, or restaurant details, and you have not been provided an Information Text with that answer, you MUST state you do not have that information. Do not invent answers. IF THE USER WANTS TO SPEAK TO A HUMAN, RESPOND ONLY WITH: [DESTEK_TALEBI].`,
+                    'de': `Sie sind der KI-Assistent für Papillon Hotels. Papillon Hotels hat 3 Häuser: Belvil, Zeugma und Ayscha. Wenn der Gast eine hotelspezifische Frage stellt und nicht angibt, von welchem Hotel er spricht, fragen Sie ihn. WICHTIG: Wenn nach spezifischen Details wie Hotelaktivitäten, Öffnungszeiten oder Restaurantdetails gefragt wird und Ihnen kein Informationstext mit der Antwort zur Verfügung gestellt wurde, MÜSSEN Sie angeben, dass Sie diese Informationen nicht haben. Erfinden Sie keine Antworten. WENN DER BENUTZER MIT EINEM MENSCHEN SPRECHEN MÖCHTE, ANTWORTEN SIE AUSSCHLIESSLICH MIT: [DESTEK_TALEBI].`,
+                    'ru': `Вы — AI-ассистент отелей Papillon. В сети Papillon 3 отеля: Belvil, Zeugma и Ayscha. Если гость задает вопрос, касающийся конкретного отеля, и не уточняет, о каком отеле идет речь, спросите его. ВАЖНО: Если вас спрашивают о конкретных деталях, таких как мероприятия в отеле, часы работы или детали ресторана, и вам не был предоставлен Информационный Текст с этим ответом, вы ДОЛЖНЫ заявить, что у вас нет этой информации. Не выдумывайте ответы. ЕСЛИ ПОЛЬЗОВАТЕЛЬ ХОЧЕТ ПОГОВОРИТЬ С ЧЕЛОВЕКОМ, ОТВЕЧАЙТЕ ТОЛЬКО: [DESTEK_TALEBI].`
                 };
-                finalSystemPrompt = generalPrompts[detectedLanguage] || generalPrompts['tr'];
-            }
-
-            // Map the client-facing role names to the backend role names ('assistant' -> 'model')
-            const mappedMessages = messages.map(msg => ({
-                ...msg,
-                role: msg.role === 'assistant' ? 'model' : 'user'
-            }));
-
-            // Start the conversation with our system prompt, followed by the actual message history
-            let conversationHistory = [
-                {
-                    role: "user",
-                    parts: [{ text: finalSystemPrompt }]
-                },
-                {
-                    role: "model",
-                    parts: [{ text: this.getGreeting(detectedLanguage) }] // Prime the model
-                },
-                ...mappedMessages
-            ];
-            
-            const requestData = {
-                contents: conversationHistory,
-                generationConfig: {
-                    temperature: 0.7,
-                    maxOutputTokens: 1024,
-                }
+                return generalPrompts[lang] || generalPrompts['tr'];
             };
 
-            const response = await axios.post(
-                `${this.apiUrl}?key=${this.apiKey}`,
-                requestData,
-                {
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    timeout: 45000
+            let prompt = getBasePrompt();
+            if (hotel) {
+                prompt += ` Kullanıcı şu anda ${hotel} otelindedir veya bu otelle ilgilenmektedir.`;
+            }
+            if (knowledge) {
+                const knowledgeData = JSON.parse(knowledge);
+                if (knowledgeData.general) {
+                    prompt += `\n\n### Genel Bilgi Metni:\n${knowledgeData.general}\n\n`;
                 }
-            );
-
-            if (response.data && response.data.candidates && response.data.candidates[0]) {
-                const aiResponse = response.data.candidates[0].content.parts[0].text;
-                console.log(`✅ Gemini API Success: Response length ${aiResponse.length} chars`);
-                return {
-                    success: true,
-                    response: aiResponse
-                };
-            } else {
-                console.error('❌ Gemini API: Unexpected response format');
-                console.error('Response data:', JSON.stringify(response.data, null, 2));
-                throw new Error('Unexpected response format from Gemini API');
+                if (knowledgeData.daily) {
+                    prompt += `\n\n### Günlük Bilgi Metni (${knowledgeData.daily.sourceDate}):\n${knowledgeData.daily.content}\n\n`;
+                }
+                 if (knowledgeData.spa) {
+                    prompt += `\n\n### SPA Katalog Bilgisi:\n${knowledgeData.spa}\n\n`;
+                }
+                prompt += `\nKullanıcının sorusunu yanıtlarken yukarıdaki metinleri kullan.`;
             }
-
-        } catch (error) {
-            console.error('❌ Gemini API Error Details:');
-            console.error('Error message:', error.message);
-            console.error('Error code:', error.code);
-            if (error.response) {
-                console.error('Response status:', error.response.status);
-                console.error('Response data:', JSON.stringify(error.response.data, null, 2));
-            }
-            return {
-                success: false,
-                error: 'AI service temporarily unavailable. Please try again.'
-            };
-        }
-    }
-
-    // New method to get a language-specific greeting
-    getGreeting(languageCode) {
-        const greetings = {
-            'tr': "Elbette, size nasıl yardımcı olabilirim?",
-            'en': "Of course, how can I help you?",
-            'de': "Natürlich, wie kann ich Ihnen helfen?",
-            'ru': "Конечно, чем я могу вам помочь?"
+            return prompt;
         };
-        return greetings[languageCode] || greetings['tr'];
-    }
+        
+        const systemInstruction = {
+            role: "system",
+            content: getSystemPrompt(lang, hotel, knowledge)
+        };
 
-    // This method will now delegate to the NaturalLanguageService
-    async detectLanguage(text, chatHistory = []) {
-        // Use the more advanced detection method
-        return await naturalLanguageService.detectLanguage(text);
-    }
-
-    // New AI-powered hotel detection
-    async detectHotelWithAI(message, chatHistory = []) {
-        try {
-            const history = chatHistory.map(m => `${m.role}: ${m.content}`).join('\n');
-            const prompt = `You are an expert at identifying hotel names in a conversation. Your task is to find which of the three Papillon hotels is being discussed: "Belvil", "Zeugma", or "Ayscha".
-
-The user might mention the hotel directly, even at the beginning of a sentence (e.g., "Ayscha, tell me about..."). Look for any mention of these names, even if it seems like the user is addressing an assistant.
-
-Respond with only a single word: the hotel name ("Belvil", "Zeugma", or "Ayscha") or "None" if no hotel is mentioned.
-
-Conversation:
-${history}
-user: ${message}
-
-Hotel:`;
-
-            const requestData = {
-                contents: [{ parts: [{ text: prompt }] }],
-                generationConfig: {
-                    temperature: 0,
-                    maxOutputTokens: 10,
-                }
-            };
-            
-            console.log('��� Asking Gemini to detect hotel...');
-            const response = await axios.post(
-                `${this.apiUrl}?key=${this.apiKey}`,
-                requestData,
-                {
-                    headers: { 'Content-Type': 'application/json' },
-                    timeout: 10000 // 10 second timeout for this simple query
-                }
-            );
-
-            if (response.data && response.data.candidates && response.data.candidates[0]) {
-                const hotel = response.data.candidates[0].content.parts[0].text.trim().replace(/"/g, '');
-                if (['Belvil', 'Zeugma', 'Ayscha'].includes(hotel)) {
-                    console.log(`��� Gemini detected hotel: ${hotel}`);
-                    return hotel;
-                }
-            }
-            console.log('��� Gemini did not detect a specific hotel.');
-            return null;
-
-        } catch (error) {
-            console.error('❌ AI Hotel Detection Error:', error.message);
-            // Fallback to simple extraction if AI fails
-            return this.extractHotelName(message, chatHistory); 
-        }
-    }
-
-    // Check if the user is asking for a human support agent
-    isSupportRequest(text) {
-        const textLower = text.toLowerCase();
-        const supportKeywords = [
-            // Turkish (more robust)
-            'destek', 'temsilci', 'operatör', 'insan', 'yardım', 'görevli', 'biriyle konuş',
-            // English (more robust)
-            'support', 'agent', 'operator', 'human', 'person', 'representative', 'service',
-            // German (more robust)
-            'support', 'hilfe', 'mitarbeiter', 'mensch', 'person',
-            // Russian (more robust)
-            'поддержк', // catches поддержка, поддержкой etc.
-            'помощь', 
-            'оператор', 
-            'человек',
-            'агент'
+        const contents = [
+            ...history.map(h => ({
+                role: h.role === 'assistant' ? 'model' : 'user',
+                parts: [{ text: h.content }]
+            })),
+            { role: "user", parts: [{ text: message }] }
         ];
 
-        return supportKeywords.some(keyword => textLower.includes(keyword));
-    }
-
-    // Extract hotel name from user message
-    extractHotelName(text) {
-        const hotels = ['belvil', 'zeugma', 'ayscha'];
-        const textLower = text.toLowerCase();
-        
-        for (const hotel of hotels) {
-            if (textLower.includes(hotel)) {
-                return hotel.charAt(0).toUpperCase() + hotel.slice(1);
-            }
-        }
-        
-        return null;
-    }
-
-    // Check if user is asking about location/map
-    isLocationQuery(text) {
-        const locationKeywords = {
-            'tr': ['nerede', 'nasıl gidilir', 'uzaklık', 'yakın', 'hastane', 'eczane', 'market', 'restoran', 'atm'],
-            'en': ['where', 'how to get', 'distance', 'near', 'nearby', 'hospital', 'pharmacy', 'store', 'restaurant', 'atm'],
-            'de': ['wo', 'wie komme ich', 'entfernung', 'nah', 'krankenhaus', 'apotheke', 'geschäft', 'restaurant'],
-            'ru': ['где', 'как добраться', 'расстояние', 'близко', 'больница', 'аптека', 'магазин', 'ресторан']
-        };
-
-        const textLower = text.toLowerCase();
-        
-        for (const keywords of Object.values(locationKeywords)) {
-            if (keywords.some(keyword => textLower.includes(keyword))) {
-                return true;
-            }
-        }
-        
-        return false;
-    }
-
-    // Detect if a message is a location-based query using AI
-    async detectLocationQuery(message, chatHistory = [], userLanguage = 'tr') {
-        try {
-            const conversationContext = chatHistory.length > 0 
-                ? `Previous conversation:\n${chatHistory.slice(-3).map(msg => `${msg.role}: ${msg.content}`).join('\n')}\n\n`
-                : '';
-
-            const prompt = `${conversationContext}User message: "${message}"
-
-Please analyze if this user message is asking about NEARBY LOCATIONS, PLACES, or DIRECTIONS.
-
-A location query includes:
-- Questions about nearby places (restaurants, hospitals, parks, etc.)
-- Asking for directions or distances
-- Seeking recommendations for places to visit
-- Any request that would benefit from geographic information
-- Questions about "where", "nearest", "closest", "around here", etc.
-
-Examples of LOCATION queries:
-- "Where is the nearest hospital?"
-- "En yakın restoran nerede?"
-- "Wo ist das nächste Krankenhaus?"
-- "Где ближайшая аптека?"
-- "Show me amusement parks nearby"
-- "Places to visit in this area"
-- "How do I get to the beach?"
-
-Examples of NON-location queries:
-- "What time is breakfast?"
-- "How do I make a reservation?"
-- "Tell me about the hotel facilities"
-- "What activities does the hotel offer?"
-
-Respond with ONLY: "YES" or "NO"`;
-
-            const result = await this.generateResponse([{ role: 'user', content: prompt }], null, 'en');
-            
-            if (result.success) {
-                const answer = result.response.trim().toUpperCase();
-                const isLocationQuery = answer.includes('YES');
-                
-                console.log(`��� AI Location Detection: "${message}" → ${isLocationQuery ? 'YES' : 'NO'}`);
-                return isLocationQuery;
-            } else {
-                console.warn('⚠️ AI location detection failed, falling back to keyword matching');
-                return false;
-            }
-        } catch (error) {
-            console.error('❌ AI location detection error:', error);
-            return false;
-        }
-    }
-
-    async detectLanguage(message, history) {
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
-
-        const historyText = history.map(h => `${h.role}: ${h.content}`).join('\n');
-
-        const prompt = `
-            Analyze the following message and conversation history to determine the primary language.
-            Respond with ONLY the two-letter ISO 639-1 code (e.g., "en", "tr", "de", "ru").
-            Do not provide any other explanation or text.
-
-            Conversation History:
-            ${historyText}
-
-            Latest Message: "${message}"
-        `;
+        const safetySettings = [
+            { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+        ];
 
         try {
-            const result = await model.generateContent(prompt);
-            const response = await result.response;
-            const languageCode = response.text().trim().toLowerCase().substring(0, 2);
-            
-            const supportedLangs = ['en', 'tr', 'de', 'ru'];
-            if (supportedLangs.includes(languageCode)) {
-                console.log(`🌐 Gemini detected language: ${languageCode}`);
-                return languageCode;
-            }
-            
-            console.log(`⚠️ Detected unsupported language '${languageCode}', defaulting to 'tr'.`);
-            return 'tr'; // Default to Turkish if detection is unclear or unsupported
+            const chatSession = this.model.startChat({
+                systemInstruction,
+                history: contents.slice(0, -1), // History is everything except the last user message
+                safetySettings
+            });
+
+            const result = await chatSession.sendMessage(message);
+            return result.response.text();
         } catch (error) {
-            console.error("Error in Gemini language detection:", error);
-            return 'tr'; // Default to Turkish on error
+            console.error('Error generating response from Gemini:', error);
+            const fallbackPrompts = {
+                tr: "Üzgünüm, bir hata oluştu. Lütfen daha sonra tekrar deneyin.",
+                en: "I'm sorry, an error occurred. Please try again later.",
+                de: "Entschuldigung, es ist ein Fehler aufgetreten. Bitte versuchen Sie es später erneut.",
+                ru: "Извините, произошла ошибка. Пожалуйста, попробуйте позже."
+            };
+            return fallbackPrompts[lang] || fallbackPrompts.tr;
         }
     }
 }
 
-module.exports = new GeminiService();
+async function isSpaQuery(message, history, lang) {
+    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    const spaKeywords = {
+        'tr': ['spa', 'masaj', 'hamam', 'sauna', 'bakım', 'terapi', 'güzellik'],
+        'en': ['spa', 'massage', 'hammam', 'sauna', 'treatment', 'therapy', 'beauty'],
+        'de': ['spa', 'massage', 'hamam', 'sauna', 'behandlung', 'therapie', 'schönheit'],
+        'ru': ['спа', 'массаж', 'хаммам', 'сауна', 'уход', 'терапия', 'красота']
+    };
+
+    const keywords = spaKeywords[lang] || spaKeywords['en'];
+    const lowerCaseMessage = message.toLowerCase();
+
+    if (keywords.some(keyword => lowerCaseMessage.includes(keyword))) {
+        console.log("Found SPA keyword, classifying as SPA query.");
+        return true;
+    }
+    
+    // If no keyword, use AI for a more nuanced check
+    const prompt = `Is the following user message asking about SPA, wellness, massage, or beauty treatments? Answer only with "yes" or "no".\n\nMessage: "${message}"`;
+    
+    try {
+        const result = await model.generateContent(prompt);
+        const responseText = result.response.text().trim().toLowerCase();
+        console.log(`SPA query check (AI): "${message}" -> ${responseText}`);
+        return responseText.includes('yes');
+    } catch (error) {
+        console.error("Error in isSpaQuery check:", error);
+        return false; // Default to false on error
+    }
+}
+
+module.exports = {
+    GeminiService,
+    detectLanguage,
+    isSpaQuery
+};

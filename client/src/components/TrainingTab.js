@@ -3,10 +3,11 @@ import React from 'react';
 function TrainingTab({ 
   selectedHotel, setSelectedHotel,
   selectedLanguage, setSelectedLanguage,
+  selectedKind, setSelectedKind,
   selectedFile, setSelectedFile,
   isUploading, isAnalyzing,
   message, messageType, pdfInfo,
-  hotels, languages, authToken,
+  hotels, languages, kinds, authToken,
   handleFileChange, analyzePDF, handleSubmit, handleLogout
 }) {
   
@@ -50,6 +51,23 @@ function TrainingTab({
                 {languages.map(lang => (
                   <option key={lang.value} value={lang.value}>
                     {lang.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="kind">Bilgi Türü:</label>
+              <select
+                id="kind"
+                value={selectedKind}
+                onChange={(e) => setSelectedKind(e.target.value)}
+                required
+              >
+                <option value="">Bilgi türü seçin...</option>
+                {kinds.map(kind => (
+                  <option key={kind.value} value={kind.value}>
+                    {kind.label}
                   </option>
                 ))}
               </select>

@@ -15,16 +15,14 @@ router.get('/top-questions', async (req, res) => {
         let needsFreshAnalysis = shouldBypassCache;
         if (!needsFreshAnalysis) {
             try {
-                const recentChats = await firebaseService.db.collection('chatlog')
-                    .where('createdAt', '>=', new Date(Date.now() - 5 * 60 * 1000)) // Last 5 minutes
-                    .get();
+                const recentQuestions = await firebaseService.getRecentQuestions(5); // Check last 5 mins
                 
-                if (recentChats.size > 0) {
-                    console.log(`🔄 Found ${recentChats.size} recent chats, invalidating cache for real-time update`);
+                if (recentQuestions.size > 0) {
+                    console.log(`🔄 Found ${recentQuestions.size} new questions, invalidating cache for real-time update`);
                     needsFreshAnalysis = true;
                 }
             } catch (error) {
-                console.warn('⚠️ Could not check recent chat activity:', error.message);
+                console.warn('⚠️ Could not check recent questions:', error.message);
             }
         }
         
@@ -60,11 +58,11 @@ router.get('/top-questions', async (req, res) => {
         console.log('🔄 Generating fresh analytics analysis...');
         const startTime = Date.now();
         
-        // Step 2: Get all chat logs from Firebase using existing getChatHistory
-        const chatLogs = await firebaseService.getChatHistory(null, 1000); // Get up to 1000 logs
-        console.log(`📊 Retrieved ${chatLogs.length} chat logs`);
+        // Step 2: Get all logged questions from Firebase using the new efficient function
+        const loggedQuestions = await firebaseService.getAllQuestions(2000); // Get up to 2000 logs
+        console.log(`📊 Retrieved ${loggedQuestions.length} logged questions`);
         
-        if (chatLogs.length === 0) {
+        if (loggedQuestions.length === 0) {
             return res.json({
                 success: true,
                 questions: [],
@@ -73,12 +71,10 @@ router.get('/top-questions', async (req, res) => {
             });
         }
         
-        // Step 3: Extract questions using AI
-        const questions = await extractQuestionsWithAI(chatLogs);
-        console.log(`❓ Extracted ${questions.length} questions`);
-        
-        // Step 4: Group similar questions and count frequencies
-        const groupedQuestions = await groupSimilarQuestions(questions);
+        // Step 3: Group similar questions and count frequencies
+        // The AI extraction step is no longer needed as we are logging clean questions.
+        const questions = loggedQuestions.map(q => q.question);
+        const groupedQuestions = await groupSimilarQuestions(loggedQuestions); // Pass full log with metadata
         console.log(`🔗 Grouped into ${groupedQuestions.length} question groups`);
         
         // Step 5: Get top 5 most frequent with proper categorization
@@ -88,9 +84,9 @@ router.get('/top-questions', async (req, res) => {
             .map((item, index) => ({
                 question: item.questionText || item.question,
                 count: item.count,
-                percentage: ((item.count / questions.length) * 100).toFixed(1),
+                percentage: ((item.count / loggedQuestions.length) * 100).toFixed(1),
                 category: item.category || 'Genel',
-                languages: item.languages || [item.language || 'unknown'],
+                languages: item.languages || ['unknown'],
                 hotels: item.hotels || ['Unknown']
             }));
             
@@ -100,8 +96,8 @@ router.get('/top-questions', async (req, res) => {
         const analysisResults = {
             questions: topQuestions,
             analysisDate: new Date().toLocaleString('tr-TR'),
-            totalLogs: chatLogs.length,
-            totalQuestions: questions.length,
+            totalLogs: loggedQuestions.length,
+            totalQuestions: loggedQuestions.length,
             timestamp: Date.now()
         };
         
@@ -186,201 +182,113 @@ router.delete('/clear-cache', async (req, res) => {
 
 // Extract actual questions from chat logs using AI
 async function extractQuestionsWithAI(chatLogs) {
-    const questions = [];
-    
-    // Process in batches of 15 for efficiency (reduced batch size for better accuracy)
-    const batchSize = 15;
-    for (let i = 0; i < chatLogs.length; i += batchSize) {
-        const batch = chatLogs.slice(i, i + batchSize);
-        
-        console.log(`🔍 Processing batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(chatLogs.length/batchSize)}`);
-        
-        // Prepare batch data with metadata
-        const batchData = batch.map((log, index) => ({
-            index: i + index,
-            message: log.userMessage || log.message || log.question || 'No message',
-            hotel: log.hotel || log.detectedHotel || 'Unknown',
-            language: log.language || log.detectedLanguage || 'unknown',
-            sessionId: log.sessionId || 'unknown'
-        }));
-        
-        const prompt = `Analyze these user messages and extract ONLY the actual questions with their metadata.
-
-CRITICAL RULES:
-- Only extract messages that are questions (asking for information)
-- Ignore greetings, statements, confirmations, thank you messages
-- PRESERVE the original language of each question - DO NOT translate or change the text
-- Remove only personal details, keep the core question exactly as written
-- If hotel is not explicitly mentioned in the message, mark as "Unknown"
-- Detect language accurately from the original text
-
-Data to analyze:
-${batchData.map(item => 
-    `Message ${item.index}: "${item.message}" | Detected Hotel: ${item.hotel} | Detected Language: ${item.language}`
-).join('\n')}
-
-Respond with a JSON array of extracted questions. Example:
-[
-  {
-    "question": "what are the pool opening hours?",
-    "detectedLanguage": "en",
-    "relatedHotel": "Unknown",
-    "category": "Facilities",
-    "originalIndex": 5
-  },
-  {
-    "question": "kahvaltı saat kaçta?",
-    "detectedLanguage": "tr", 
-    "relatedHotel": "Unknown",
-    "category": "Dining",
-    "originalIndex": 12
-  },
-  {
-    "question": "zeugma oteli restoran saatleri nedir?",
-    "detectedLanguage": "tr", 
-    "relatedHotel": "Zeugma",
-    "category": "Dining",
-    "originalIndex": 15
-  }
-]
-
-IMPORTANT: 
-- Keep questions in their ORIGINAL language
-- Only mark hotel as specific name if explicitly mentioned in the question
-- If no hotel mentioned in question, use "Unknown" regardless of detected metadata`;
-
-        try {
-            const result = await geminiService.generateResponse([{role: 'user', content: prompt}], null, 'en');
-            
-            if (result.success) {
-                const cleanResponse = result.response.replace(/```json|```/g, '').trim();
-                const extractedQuestions = JSON.parse(cleanResponse);
-                
-                // Add metadata to each question
-                extractedQuestions.forEach(q => {
-                    const originalLog = batchData.find(item => item.index === q.originalIndex);
-                    questions.push({
-                        questionText: q.question,
-                        detectedLanguage: q.detectedLanguage || 'unknown',
-                        // AI'ın hotel detection kararına saygı duy - override etme
-                        relatedHotel: q.relatedHotel || 'Unknown',
-                        category: q.category || 'Genel',
-                        originalBatch: Math.floor(i/batchSize) + 1,
-                        sessionId: originalLog ? originalLog.sessionId : 'unknown'
-                    });
-                });
-            }
-        } catch (error) {
-            console.warn(`⚠️ Failed to process batch ${Math.floor(i/batchSize) + 1}:`, error.message);
-        }
-        
-        // Small delay to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 750)); // Increased delay
-    }
-    
-    return questions;
+    // THIS FUNCTION IS NO LONGER NEEDED AS WE ARE LOGGING QUESTIONS DIRECTLY
+    // We keep it here in case we need to revert, but it should not be called.
+    console.warn("extractQuestionsWithAI is deprecated and should not be called.");
+    return chatLogs.map(log => ({
+        question: log.userMessage || log.message || 'No message',
+        hotel: log.hotel || 'Unknown',
+        language: log.language || 'unknown'
+    }));
 }
 
 // Group similar questions using AI
-async function groupSimilarQuestions(questions) {
-    if (questions.length === 0) return [];
-    
-    console.log(`🔗 Grouping ${questions.length} questions by similarity...`);
-    
-    // Prepare questions with metadata for better analysis
-    const questionData = questions.map((q, i) => ({
-        id: i,
-        text: q.questionText,
-        language: q.detectedLanguage,
-        hotel: q.relatedHotel,
-        category: q.category
-    }));
-    
-    const prompt = `Group these questions by similarity and intent. Questions asking the same thing should be grouped together, regardless of language.
+async function groupSimilarQuestions(loggedQuestions) {
+    if (!loggedQuestions || loggedQuestions.length === 0) return [];
+    console.log(`🔗 Grouping ${loggedQuestions.length} questions by similarity...`);
 
-Questions with metadata:
-${questionData.map((q, i) => 
-    `${i+1}. "${q.text}" | Language: ${q.language} | Hotel: ${q.hotel} | Category: ${q.category}`
-).join('\n')}
+    const allGroups = [];
+    const batchSize = 15; // Process 15 questions per AI call
 
-Respond with JSON showing groups of similar questions:
+    for (let i = 0; i < loggedQuestions.length; i += batchSize) {
+        const batch = loggedQuestions.slice(i, i + batchSize);
+        const batchNumber = (i / batchSize) + 1;
+        const totalBatches = Math.ceil(loggedQuestions.length / batchSize);
+
+        console.log(`🔍 Processing batch ${batchNumber}/${totalBatches}`);
+        
+        const prompt = `Analyze this list of user questions. Group similar questions together.
+
+CRITICAL RULES:
+- Identify the most common, representative phrasing for each group.
+- Count how many times each type of question was asked.
+- Consolidate different phrasings of the SAME question into one group.
+- Preserve the original language.
+- Extract all languages and hotels associated with the questions in each group.
+
+Questions to analyze:
+${batch.map((q, index) => `ID ${q.id}: "${q.question}" (Hotel: ${q.hotel}, Lang: ${q.language})`).join('\n')}
+
+Respond with a JSON array of grouped questions. Example:
 [
   {
-    "questionText": "what are the pool opening hours?",
+    "question": "Havuz saatleri nedir?",
     "count": 3,
-    "category": "Facilities",
-    "languages": ["en", "tr"],
-    "hotels": ["Unknown", "Zeugma"],
-    "similarQuestions": [
-      "what are the pool opening hours?",
-      "havuz saatleri nedir?",
-      "when does pool open?"
-    ]
+    "languages": ["tr"],
+    "hotels": ["Belvil", "Ayscha"],
+    "category": "Facilities"
+  },
+  {
+    "question": "What are the a la carte restaurant options?",
+    "count": 5,
+    "languages": ["en", "de"],
+    "hotels": ["Zeugma", "Ayscha", "Belvil"],
+    "category": "Dining"
   }
 ]
 
-CRITICAL RULES:
-- Group questions with same intent even if different languages
-- Use the MOST FREQUENTLY ASKED version as representative text (keep original language)
-- DO NOT translate or clean up question text - keep them exactly as users wrote
-- Count total occurrences in the group
-- List all languages found in the group
-- List all hotels mentioned in the group
-- Assign appropriate categories (Facilities, Dining, Location, Services, etc.)`;
+Your entire response MUST be a single, valid JSON array. It must start with '[' and end with ']'. Do not include any markdown, explanations, or any other text.`;
 
-    try {
-        const result = await geminiService.generateResponse([{role: 'user', content: prompt}], null, 'en');
-        
-        if (result.success) {
-            const cleanResponse = result.response.replace(/```json|```/g, '').trim();
-            const groupedQuestions = JSON.parse(cleanResponse);
-            
-            // Validate and enhance the results
-            return groupedQuestions.map(group => ({
-                questionText: group.questionText,
-                count: group.count || 1,
-                category: group.category || 'Genel',
-                languages: Array.isArray(group.languages) ? group.languages : [group.language || 'unknown'],
-                hotels: Array.isArray(group.hotels) ? group.hotels : [group.hotel || 'Unknown'],
-                similarQuestions: group.similarQuestions || [group.questionText]
-            }));
-        }
-    } catch (error) {
-        console.error('❌ Failed to group questions:', error);
-        
-        // Fallback: create groups based on exact text matches
-        const questionCounts = {};
-        const questionMetadata = {};
-        
-        questions.forEach(q => {
-            const key = q.questionText.toLowerCase().trim();
-            questionCounts[key] = (questionCounts[key] || 0) + 1;
-            
-            if (!questionMetadata[key]) {
-                questionMetadata[key] = {
-                    languages: new Set(),
-                    hotels: new Set(),
-                    categories: new Set()
-                };
+        try {
+            const aiResult = await geminiService.generateResponse([{ role: 'user', content: prompt }], null, 'en');
+
+            if (aiResult.success && aiResult.response) {
+                // Resiliently find the JSON array in the response
+                const jsonMatch = aiResult.response.match(/\[[\s\S]*\]/);
+                
+                if (jsonMatch && jsonMatch[0]) {
+                    const jsonString = jsonMatch[0];
+                    const parsedGroup = JSON.parse(jsonString);
+                    allGroups.push(...parsedGroup);
+                } else {
+                    console.warn(`⚠️ AI response for batch ${batchNumber} did not contain valid JSON.`);
+                }
+            } else {
+                console.warn(`⚠️ AI grouping failed for batch ${batchNumber}.`);
             }
-            
-            questionMetadata[key].languages.add(q.detectedLanguage);
-            questionMetadata[key].hotels.add(q.relatedHotel);
-            questionMetadata[key].categories.add(q.category);
-        });
-        
-        return Object.entries(questionCounts)
-            .map(([question, count]) => {
-                const meta = questionMetadata[question];
-                return {
-                questionText: question,
-                count: count,
-                    category: Array.from(meta.categories)[0] || 'Genel',
-                    languages: Array.from(meta.languages),
-                    hotels: Array.from(meta.hotels)
-                };
-            });
+        } catch (error) {
+            console.error(`❌ Error processing batch ${batchNumber}:`, error.message);
+        }
     }
+    
+    // Final consolidation after all batches are processed
+    if (allGroups.length === 0) {
+        console.log('No groups were created by the AI.');
+        return [];
+    }
+
+    const consolidated = {};
+    allGroups.forEach(group => {
+        if (!group.question) return; // Skip malformed groups
+        const key = group.question.toLowerCase().trim();
+        if (consolidated[key]) {
+            consolidated[key].count += group.count;
+            if (group.languages) {
+                consolidated[key].languages = [...new Set([...consolidated[key].languages, ...group.languages])];
+            }
+            if (group.hotels) {
+                consolidated[key].hotels = [...new Set([...consolidated[key].hotels, ...group.hotels])];
+            }
+        } else {
+            consolidated[key] = {
+                ...group,
+                languages: group.languages || [],
+                hotels: group.hotels || []
+            };
+        }
+    });
+
+    return Object.values(consolidated);
 }
 
 module.exports = router;

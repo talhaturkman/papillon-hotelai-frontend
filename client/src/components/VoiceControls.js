@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-const API_BASE_URL = 'http://192.168.203.16:5002';
+const API_BASE_URL = 'http://localhost:5002';
 const LANGUAGE_MAP = { 'tr': 'tr-TR', 'en': 'en-US', 'de': 'de-DE', 'ru': 'ru-RU' };
 const VoiceControls = ({ onVoiceInput, onVoiceOutput, isLoading, language = 'tr' }) => {
   const [isListening, setIsListening] = useState(false);
@@ -67,9 +67,13 @@ const VoiceControls = ({ onVoiceInput, onVoiceOutput, isLoading, language = 'tr'
     }
   }, [language]);
   const handleMicClick = () => {
-    if (isSpeaking) { stopSpeaking(); }
-    else if (isListening) { recognitionRef.current?.stop(); }
-    else { recognitionRef.current?.start(); }
+    if (isSpeaking) {
+      stopSpeaking();
+    } else if (isListening) {
+      recognitionRef.current?.stop();
+    } else if (!isLoading) {
+      recognitionRef.current?.start();
+    }
   };
   if (!isSupported) { return null; }
   const getButtonState = () => {
@@ -80,7 +84,7 @@ const VoiceControls = ({ onVoiceInput, onVoiceOutput, isLoading, language = 'tr'
   };
   const buttonState = getButtonState();
   return (
-    <button onClick={handleMicClick} className={`voice-btn-main state-${buttonState}`} disabled={isLoading}>
+    <button type="button" onClick={handleMicClick} className={`voice-btn-main state-${buttonState}`} disabled={isLoading}>
       <div className="voice-btn-icon-wrapper">
         {buttonState === 'idle' && <span dangerouslySetInnerHTML={{ __html: '&#x1F3A4;' }} />}
         {buttonState === 'listening' && <div className="pulse-animation"></div>}

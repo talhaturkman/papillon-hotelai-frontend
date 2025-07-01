@@ -1,149 +1,91 @@
 const { PDFDocument } = require('pdf-lib');
+const fs = require('fs').promises;
+const documentai = require('./documentai');
 
 class PDFProcessor {
     constructor() {
-        this.maxPagesPerChunk = 15; // Document AI limit
+        this.maxPagesPerChunk = 15;
     }
 
-    // Split PDF into chunks based on page limit
-    async splitPDF(pdfBuffer) {
+    async processPdf(filePath) {
         try {
-            console.log('📄 Starting PDF split process...');
-            
-            // Load the PDF
-            const pdfDoc = await PDFDocument.load(pdfBuffer);
-            const totalPages = pdfDoc.getPageCount();
-            
-            console.log(`📄 PDF has ${totalPages} pages, splitting into chunks of ${this.maxPagesPerChunk} pages`);
+            console.log(`[PDFProcessor] Starting full processing for: ${filePath}`);
+            const fileBuffer = await fs.readFile(filePath);
 
-            if (totalPages <= this.maxPagesPerChunk) {
-                // No need to split
-                console.log('📄 PDF is within page limit, no splitting needed');
-                return [{
-                    buffer: pdfBuffer,
-                    pageRange: `1-${totalPages}`,
-                    chunkIndex: 1,
-                    totalChunks: 1
-                }];
+            const chunks = await this.splitPDF(fileBuffer);
+            console.log(`[PDFProcessor] PDF split into ${chunks.length} chunks.`);
+
+            const processingPromises = chunks.map(chunk => 
+                documentai.processDocument(chunk.buffer, 'application/pdf')
+            );
+
+            const chunkResults = await Promise.all(processingPromises);
+            
+            let combinedText = '';
+            chunkResults.forEach((result, index) => {
+                if (result.success && result.text) {
+                    if (combinedText) combinedText += '\n\n--- Page Break ---\n\n';
+                    combinedText += result.text;
+                } else {
+                    console.warn(`[PDFProcessor] Chunk ${index + 1} failed processing: ${result.error}`);
+                }
+            });
+
+            if (!combinedText) {
+                throw new Error('All chunks failed processing or returned no text.');
             }
 
+            console.log(`[PDFProcessor] Successfully processed and combined text. Total length: ${combinedText.length}`);
+            return combinedText;
+
+        } catch (error) {
+            console.error(`❌ [PDFProcessor] Error during PDF processing of ${filePath}:`, error.message);
+            throw error;
+        }
+    }
+
+    async splitPDF(pdfBuffer) {
+        try {
+            const pdfDoc = await PDFDocument.load(pdfBuffer);
+            const totalPages = pdfDoc.getPageCount();
+
+            if (totalPages <= this.maxPagesPerChunk) {
+                console.log(`[PDFProcessor] No splitting needed for ${totalPages} pages.`);
+                return [{ buffer: pdfBuffer }];
+            }
+
+            console.log(`[PDFProcessor] Splitting ${totalPages} pages into chunks of ${this.maxPagesPerChunk}.`);
             const chunks = [];
             const totalChunks = Math.ceil(totalPages / this.maxPagesPerChunk);
 
             for (let i = 0; i < totalChunks; i++) {
                 const startPage = i * this.maxPagesPerChunk;
-                const endPage = Math.min(startPage + this.maxPagesPerChunk - 1, totalPages - 1);
+                const endPage = Math.min(startPage + this.maxPagesPerChunk, totalPages);
                 
-                console.log(`📄 Creating chunk ${i + 1}/${totalChunks}: pages ${startPage + 1}-${endPage + 1}`);
-
-                // Create new PDF document for this chunk
                 const chunkDoc = await PDFDocument.create();
+                const copiedPages = await chunkDoc.copyPages(pdfDoc, Array.from({length: endPage - startPage}, (_, k) => startPage + k));
+                copiedPages.forEach(page => chunkDoc.addPage(page));
                 
-                // Copy pages from original PDF to chunk
-                const pagesToCopy = [];
-                for (let pageIndex = startPage; pageIndex <= endPage; pageIndex++) {
-                    pagesToCopy.push(pageIndex);
-                }
-
-                const copiedPages = await chunkDoc.copyPages(pdfDoc, pagesToCopy);
-                copiedPages.forEach((page) => chunkDoc.addPage(page));
-
-                // Save chunk as buffer
                 const chunkBuffer = await chunkDoc.save();
-
-                chunks.push({
-                    buffer: Buffer.from(chunkBuffer),
-                    pageRange: `${startPage + 1}-${endPage + 1}`,
-                    chunkIndex: i + 1,
-                    totalChunks: totalChunks,
-                    pages: endPage - startPage + 1
-                });
+                chunks.push({ buffer: Buffer.from(chunkBuffer) });
             }
 
-            console.log(`✅ PDF split into ${chunks.length} chunks successfully`);
+            console.log(`[PDFProcessor] PDF split into ${chunks.length} buffers.`);
             return chunks;
 
         } catch (error) {
-            console.error('❌ Error splitting PDF:', error);
-            throw new Error(`PDF splitting failed: ${error.message}`);
+            console.error('❌ [PDFProcessor] Error splitting PDF:', error);
+            throw error;
         }
     }
-
-    // Combine text from multiple chunks
-    combineChunkTexts(chunkResults) {
-        try {
-            let combinedText = '';
-            let totalPages = 0;
-            const metadata = {
-                chunks: [],
-                totalProcessedPages: 0,
-                processingTime: new Date().toISOString()
-            };
-
-            // Sort chunks by index to maintain order
-            const sortedResults = chunkResults.sort((a, b) => a.chunkIndex - b.chunkIndex);
-
-            sortedResults.forEach((result, index) => {
-                if (result.success && result.text) {
-                    // Add separator between chunks
-                    if (combinedText.length > 0) {
-                        combinedText += '\n\n--- Sayfa Geçişi ---\n\n';
-                    }
-                    
-                    combinedText += `[Sayfa ${result.pageRange}]\n${result.text}`;
-                    totalPages += result.pages || 0;
-                    
-                    metadata.chunks.push({
-                        chunkIndex: result.chunkIndex,
-                        pageRange: result.pageRange,
-                        textLength: result.text.length,
-                        success: true
-                    });
-                } else {
-                    console.warn(`⚠️ Chunk ${result.chunkIndex} failed:`, result.error);
-                    metadata.chunks.push({
-                        chunkIndex: result.chunkIndex,
-                        pageRange: result.pageRange,
-                        success: false,
-                        error: result.error
-                    });
-                }
-            });
-
-            metadata.totalProcessedPages = totalPages;
-            
-            console.log(`✅ Combined text from ${sortedResults.length} chunks, total pages: ${totalPages}`);
-            
-            return {
-                success: true,
-                text: combinedText,
-                metadata: metadata,
-                totalChunks: sortedResults.length,
-                successfulChunks: metadata.chunks.filter(c => c.success).length
-            };
-
-        } catch (error) {
-            console.error('❌ Error combining chunk texts:', error);
-            return {
-                success: false,
-                error: error.message,
-                metadata: { chunks: [] }
-            };
-        }
-    }
-
-    // Get PDF info without processing
+    
     async getPDFInfo(pdfBuffer) {
         try {
             const pdfDoc = await PDFDocument.load(pdfBuffer);
             const totalPages = pdfDoc.getPageCount();
-            const estimatedChunks = Math.ceil(totalPages / this.maxPagesPerChunk);
-            
             return {
                 totalPages: totalPages,
-                estimatedChunks: estimatedChunks,
-                needsSplitting: totalPages > this.maxPagesPerChunk,
-                maxPagesPerChunk: this.maxPagesPerChunk
+                estimatedChunks: Math.ceil(totalPages / this.maxPagesPerChunk),
             };
         } catch (error) {
             console.error('❌ Error getting PDF info:', error);
@@ -152,4 +94,4 @@ class PDFProcessor {
     }
 }
 
-module.exports = new PDFProcessor(); 
+module.exports = new PDFProcessor();

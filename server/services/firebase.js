@@ -5,6 +5,8 @@ class FirebaseService {
     constructor() {
         this.db = null;
         this.isInitialized = false;
+        this.admin = admin; // Expose the admin SDK
+        this.initializationPromise = null;
     }
 
     async initialize() {
@@ -13,23 +15,10 @@ class FirebaseService {
         try {
             let credential;
             
-            // First try: Secret Manager (Cloud Run)
             if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
                 try {
-                    console.log('🔍 Loading Firebase credentials from Secret Manager...');
+                    console.log('��� Loading Firebase credentials from Secret Manager...');
                     const serviceAccount = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
-                    
-                    // Validate required fields
-                    if (!serviceAccount.private_key) {
-                        throw new Error('private_key missing in secret JSON');
-                    }
-                    if (!serviceAccount.client_email) {
-                        throw new Error('client_email missing in secret JSON');
-                    }
-                    if (!serviceAccount.project_id) {
-                        throw new Error('project_id missing in secret JSON');
-                    }
-                    
                     credential = admin.credential.cert(serviceAccount);
                     console.log('✅ Using Firebase Secret Manager credentials');
                 } catch (secretError) {
@@ -37,13 +26,11 @@ class FirebaseService {
                     throw secretError;
                 }
             }
-            // Second try: Local JSON file path
             else if (process.env.GOOGLE_APPLICATION_CREDENTIALS && require('fs').existsSync(process.env.GOOGLE_APPLICATION_CREDENTIALS)) {
                 try {
                     const absolutePath = path.resolve(process.env.GOOGLE_APPLICATION_CREDENTIALS);
-                    console.log(`🔍 Loading Firebase credentials from: ${absolutePath}`);
+                    console.log(`��� Loading Firebase credentials from: ${absolutePath}`);
                     const serviceAccount = require(absolutePath);
-                    
                     credential = admin.credential.cert(serviceAccount);
                     console.log('✅ Using Firebase JSON credentials file');
                 } catch (jsonError) {
@@ -51,9 +38,8 @@ class FirebaseService {
                     throw jsonError;
                 }
             }
-            // Third try: Environment variables
             else {
-                console.log('🔍 JSON file not found, trying environment variables...');
+                console.log('��� JSON file not found, trying environment variables...');
                 const serviceAccount = {
                     type: "service_account",
                     project_id: process.env.FIREBASE_PROJECT_ID,
@@ -61,19 +47,8 @@ class FirebaseService {
                     private_key: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
                 };
                 
-                // Make Firebase optional - don't crash if credentials are missing
-                if (!serviceAccount.private_key) {
-                    console.warn('⚠️ FIREBASE_PRIVATE_KEY environment variable missing - Firebase features disabled');
-                    this.isInitialized = false;
-                    return;
-                }
-                if (!serviceAccount.client_email) {
-                    console.warn('⚠️ FIREBASE_CLIENT_EMAIL environment variable missing - Firebase features disabled');
-                    this.isInitialized = false;
-                    return;
-                }
-                if (!serviceAccount.project_id) {
-                    console.warn('⚠️ FIREBASE_PROJECT_ID environment variable missing - Firebase features disabled');
+                if (!serviceAccount.private_key || !serviceAccount.client_email || !serviceAccount.project_id) {
+                    console.warn('⚠️ Missing Firebase environment variables - Firebase features disabled');
                     this.isInitialized = false;
                     return;
                 }
@@ -96,27 +71,25 @@ class FirebaseService {
             console.error('❌ Firebase initialization error:', error);
             console.warn('⚠️ Firebase features will be disabled - server will continue without Firebase');
             this.isInitialized = false;
-            // Don't throw error - let server continue without Firebase
         }
     }
 
-    // Store chat conversation in chatlog collection
+    ensureInitialized() {
+        if (!this.initializationPromise) {
+            this.initializationPromise = this.initialize().catch(err => {
+                this.initializationPromise = null; 
+                console.error("Firebase initialization failed permanently for this attempt.", err);
+            });
+        }
+        return this.initializationPromise;
+    }
+
     async storeChatLog(conversationData) {
         await this.ensureInitialized();
-
+        if (!this.isInitialized) return { success: false };
         try {
             const chatlogRef = this.db.collection('chatlog').doc();
-            
-            const chatData = {
-                ...conversationData,
-                id: chatlogRef.id,
-                createdAt: admin.firestore.FieldValue.serverTimestamp(),
-                updatedAt: admin.firestore.FieldValue.serverTimestamp()
-            };
-
-            await chatlogRef.set(chatData);
-            
-            console.log(`✅ Chat log stored: ${conversationData.sessionId}`);
+            await chatlogRef.set({ ...conversationData, id: chatlogRef.id, createdAt: admin.firestore.FieldValue.serverTimestamp() });
             return { success: true, id: chatlogRef.id };
         } catch (error) {
             console.error('❌ Error storing chat log:', error);
@@ -124,246 +97,256 @@ class FirebaseService {
         }
     }
 
-    // Get chat history for analytics
     async getChatHistory(sessionId = null, limit = 100) {
         await this.ensureInitialized();
-
+        if (!this.isInitialized) return [];
         try {
             let query = this.db.collection('chatlog').orderBy('createdAt', 'desc');
-            
-            if (sessionId) {
-                query = query.where('sessionId', '==', sessionId);
-            }
-            
-            query = query.limit(limit);
-            
-            const snapshot = await query.get();
-            const chats = [];
-            
-            snapshot.forEach(doc => {
-                chats.push({
-                    id: doc.id,
-                    ...doc.data()
-                });
-            });
-
-            return chats;
+            if (sessionId) query = query.where('sessionId', '==', sessionId);
+            const snapshot = await query.limit(limit).get();
+            return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         } catch (error) {
             console.error('❌ Error getting chat history:', error);
             throw error;
         }
     }
 
-    // Store knowledge in Firebase with structure: knowledge_base > Papillon > Hotel > Language
-    async storeKnowledge(hotel, language, content, metadata = {}) {
-        console.log(`🔍 storeKnowledge called with hotel: ${hotel}, language: ${language}`);
-        console.log(`🔍 Content length: ${content ? content.length : 'null'} characters`);
-        console.log(`🔍 Metadata:`, metadata);
+    async logQuestionForAnalysis(data) {
+        await this.ensureInitialized();
+        if (!this.isInitialized) return;
+        try {
+            if (!data.message || data.message.trim() === '') return;
+            const logRef = this.db.collection('questions_log').doc();
+            await logRef.set({ ...data, createdAt: admin.firestore.FieldValue.serverTimestamp() });
+        } catch (error) {
+            console.error('❌ Error logging question for analysis:', error);
+        }
+    }
+
+    async getAllQuestions(limit = 1000) {
+        await this.ensureInitialized();
+        if (!this.isInitialized) return [];
+        try {
+            const snapshot = await this.db.collection('questions_log').orderBy('createdAt', 'desc').limit(limit).get();
+            return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        } catch (error) {
+            console.error('❌ Error getting all questions:', error);
+            return [];
+        }
+    }
+
+    async getRecentQuestions(minutes = 5) {
+        await this.ensureInitialized();
+        if (!this.isInitialized) return { size: 0 };
+        try {
+            return await this.db.collection('questions_log').where('createdAt', '>=', new Date(Date.now() - minutes * 60 * 1000)).get();
+        } catch (error) {
+            console.warn(`⚠️ Could not get recent questions:`, error.message);
+            return { size: 0 };
+        }
+    }
+
+    chunkText(text, maxLength = 2000) {
+        if (!text) return [];
+        const chunks = [];
+        let i = 0;
+        while (i < text.length) {
+            chunks.push(text.substring(i, i + maxLength));
+            i += maxLength;
+        }
+        return chunks;
+    }
+
+    async storeKnowledge(hotel, language, kind, content, documentDate = null) {
+        await this.ensureInitialized();
+        if (!this.isInitialized) return { success: false, error: 'Firebase not initialized' };
+
+        const kindDocRef = this.db.collection('knowledge_base').doc('Papillon')
+            .collection(hotel).doc(language)
+            .collection('kinds').doc(kind);
+
+        const chunksCollectionRef = kindDocRef.collection('chunks');
+        const chunks = this.chunkText(content);
         
-        await this.ensureInitialized();
-        console.log(`🔍 Firebase initialization confirmed`);
+        console.log(`[Firestore] Storing ${chunks.length} chunks to path: Papillon/${hotel}/${language}/kinds/${kind}/chunks`);
 
-        try {
-            const docRef = this.db
-                .collection('knowledge_base')
-                .doc('Papillon')
-                .collection(hotel)
-                .doc(language);
-
-            console.log(`🔍 Document reference created for: knowledge_base/Papillon/${hotel}/${language}`);
-
-            const knowledgeData = {
-                content: content,
-                metadata: {
-                    ...metadata,
-                    lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
-                    hotel: hotel,
-                    language: language
-                },
-                createdAt: admin.firestore.FieldValue.serverTimestamp()
-            };
-
-            console.log(`🔍 Knowledge data prepared, attempting to save...`);
-            await docRef.set(knowledgeData, { merge: true });
-            
-            console.log(`✅ Knowledge stored: ${hotel} - ${language}`);
-            return { success: true, message: 'Knowledge stored successfully' };
-        } catch (error) {
-            console.error('❌ Error storing knowledge:', error);
-            throw error;
+        const snapshot = await chunksCollectionRef.get();
+        if (!snapshot.empty) {
+            console.log(`[Firestore] Deleting ${snapshot.size} old chunks from /${kind}/...`);
+            const deleteBatch = this.db.batch();
+            snapshot.docs.forEach(doc => deleteBatch.delete(doc.ref));
+            await deleteBatch.commit();
         }
-    }
-
-    // Search knowledge base for relevant information
-    async searchKnowledge(query, hotel = null, language = null) {
-        await this.ensureInitialized();
-
-        try {
-            let searchResults = [];
-
-            if (hotel && language) {
-                // Search specific hotel and language
-                const docRef = this.db
-                    .collection('knowledge_base')
-                    .doc('Papillon')
-                    .collection(hotel)
-                    .doc(language);
-
-                const doc = await docRef.get();
-                if (doc.exists) {
-                    searchResults.push({
-                        hotel: hotel,
-                        language: language,
-                        content: doc.data().content,
-                        metadata: doc.data().metadata
-                    });
-                }
-            } else if (hotel && !language) {
-                // Search specific hotel, all languages
-                const languages = ['tr', 'en', 'de', 'ru'];
-                
-                for (const lang of languages) {
-                    try {
-                        const docRef = this.db
-                            .collection('knowledge_base')
-                            .doc('Papillon')
-                            .collection(hotel)
-                            .doc(lang);
-
-                        const doc = await docRef.get();
-                        if (doc.exists) {
-                            searchResults.push({
-                                hotel: hotel,
-                                language: lang,
-                                content: doc.data().content,
-                                metadata: doc.data().metadata
-                            });
-                        }
-                    } catch (error) {
-                        console.warn(`Warning: Could not fetch ${hotel}-${lang}`);
-                    }
-                }
-            } else {
-                // Search all hotels and languages
-                const hotels = ['Belvil', 'Zeugma', 'Ayscha'];
-                const languages = ['tr', 'en', 'de', 'ru'];
-
-                for (const hotelName of hotels) {
-                    for (const lang of languages) {
-                        try {
-                            const docRef = this.db
-                                .collection('knowledge_base')
-                                .doc('Papillon')
-                                .collection(hotelName)
-                                .doc(lang);
-
-                            const doc = await docRef.get();
-                            if (doc.exists) {
-                                searchResults.push({
-                                    hotel: hotelName,
-                                    language: lang,
-                                    content: doc.data().content,
-                                    metadata: doc.data().metadata
-                                });
-                            }
-                        } catch (error) {
-                            // Continue with other hotels/languages if one fails
-                            console.warn(`Warning: Could not fetch ${hotelName}-${lang}`);
-                        }
-                    }
-                }
+        
+        const writeBatch = this.db.batch();
+        chunks.forEach((chunk, index) => {
+            const docRef = chunksCollectionRef.doc(`chunk_${index}`);
+            const data = { text: chunk };
+            if (kind === 'daily' && documentDate) {
+                data.date = admin.firestore.Timestamp.fromDate(documentDate);
             }
+            writeBatch.set(docRef, data);
+        });
 
-            console.log(`🔍 Knowledge search results: ${searchResults.length} documents found (hotel: ${hotel || 'all'}, language: ${language || 'all'})`);
-            return searchResults;
-        } catch (error) {
-            console.error('❌ Error searching knowledge:', error);
-            throw error;
-        }
+        await kindDocRef.set({ 
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            chunkCount: chunks.length,
+            ...(documentDate && { documentDate: admin.firestore.Timestamp.fromDate(documentDate) })
+        }, { merge: true });
+
+        await writeBatch.commit();
+        console.log(`[Firestore] Successfully stored ${chunks.length} new chunks.`);
+        return { success: true, chunks: chunks.length };
     }
 
-    // Get all available hotels
+    async searchKnowledge(hotel, language) {
+        await this.ensureInitialized();
+        if (!this.isInitialized) return { success: false, content: '' };
+
+        const languagePriorities = [language, 'en', 'tr', 'de', 'ru'].filter((v, i, a) => a.indexOf(v) === i);
+        let foundGeneral = null;
+        let foundDaily = null;
+        let foundSpa = null;
+
+        const getDates = () => {
+            const today = new Date();
+            today.setUTCHours(0, 0, 0, 0);
+            const yesterday = new Date(today);
+            yesterday.setDate(today.getDate() - 1);
+            return {
+                today: admin.firestore.Timestamp.fromDate(today),
+                yesterday: admin.firestore.Timestamp.fromDate(yesterday)
+            };
+        };
+        const { today, yesterday } = getDates();
+
+        const searchInLanguage = async (lang) => {
+            const kindsCollectionRef = this.db.collection('knowledge_base').doc('Papillon')
+                .collection(hotel).doc(lang)
+                .collection('kinds');
+
+            const generalChunks = (await kindsCollectionRef.doc('general').collection('chunks').get()).docs.map(doc => doc.data().text);
+            const dailyChunksSnapshot = await kindsCollectionRef.doc('daily').collection('chunks').get();
+            const spaChunks = (await kindsCollectionRef.doc('spa').collection('chunks').get()).docs.map(doc => doc.data().text);
+
+            let todayContent = [];
+            let yesterdayContent = [];
+            if (!dailyChunksSnapshot.empty) {
+                dailyChunksSnapshot.forEach(doc => {
+                    const data = doc.data();
+                    if (data.date) {
+                        if (data.date.isEqual(today)) todayContent.push(data.text);
+                        else if (data.date.isEqual(yesterday)) yesterdayContent.push(data.text);
+                    }
+                });
+            }
+            return {
+                general: generalChunks.join('\n\n'),
+                dailyToday: todayContent.join('\n\n'),
+                dailyYesterday: yesterdayContent.join('\n\n'),
+                spa: spaChunks.join('\n\n'),
+            };
+        };
+
+        for (const lang of languagePriorities) {
+            const results = await searchInLanguage(lang);
+            if (!foundGeneral && results.general) {
+                foundGeneral = results.general;
+                console.log(`[Knowledge Search] SUCCESS: Found GENERAL info in fallback language: ${lang}`);
+            }
+            if (!foundDaily && (results.dailyToday || results.dailyYesterday)) {
+                foundDaily = { today: results.dailyToday, yesterday: results.dailyYesterday };
+                 console.log(`[Knowledge Search] SUCCESS: Found DAILY info in fallback language: ${lang}`);
+            }
+            if (!foundSpa && results.spa) {
+                foundSpa = results.spa;
+                console.log(`[Knowledge Search] SUCCESS: Found SPA info in fallback language: ${lang}`);
+            }
+            if (foundGeneral && foundDaily && foundSpa) break;
+        }
+
+        let finalContent = '';
+        if (foundGeneral) {
+            finalContent += `### General Information ###\n${foundGeneral}\n\n`;
+        }
+        if (foundDaily) {
+            if (foundDaily.today) {
+                finalContent += `### Daily Information (Today) ###\n${foundDaily.today}\n\n`;
+            }
+            if (foundDaily.yesterday) {
+                finalContent += `### Daily Information (Yesterday) ###\n${foundDaily.yesterday}\n\n`;
+            }
+        }
+        if (foundSpa) {
+            finalContent += `### SPA Information ###\n${foundSpa}\n\n`;
+        }
+        
+        console.log(`[Knowledge Search] Final check. General: ${!!foundGeneral}, Daily: ${!!foundDaily}, SPA: ${!!foundSpa}. Length: ${finalContent.length}`);
+        return { success: finalContent.length > 0, content: finalContent };
+    }
+
     async getAvailableHotels() {
         await this.ensureInitialized();
-
+        if (!this.isInitialized) return [];
         try {
-            const papillonDoc = this.db.collection('knowledge_base').doc('Papillon');
-            const collections = await papillonDoc.listCollections();
-            
-            return collections.map(collection => collection.id);
+            const collections = await this.db.collection('knowledge_base').doc('Papillon').listCollections();
+            return collections.map(col => col.id);
         } catch (error) {
-            console.error('❌ Error getting hotels:', error);
-            return ['Belvil', 'Zeugma', 'Ayscha']; // Return default hotels
+            console.error('❌ Error getting available hotels:', error);
+            return [];
         }
     }
 
-    // Store chat conversation for analytics
     async storeChatConversation(sessionId, messages, metadata = {}) {
         await this.ensureInitialized();
-
+        if (!this.isInitialized) return;
         try {
-            const docRef = this.db.collection('chat_conversations').doc(sessionId);
-            
-            await docRef.set({
-                messages: messages,
-                metadata: {
-                    ...metadata,
-                    lastUpdated: admin.firestore.FieldValue.serverTimestamp()
-                },
-                createdAt: admin.firestore.FieldValue.serverTimestamp()
-            }, { merge: true });
-
-            return { success: true };
+            const conversationRef = this.db.collection('chats').doc(sessionId);
+            await conversationRef.set({ metadata, messages, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
         } catch (error) {
-            console.error('❌ Error storing conversation:', error);
-            throw error;
+            console.error('❌ Error storing chat conversation:', error);
         }
     }
 
-    // Get all chat logs for analytics
-    async getAllChatLogs() {
+    async getChatConversation(sessionId) {
         await this.ensureInitialized();
-
+        if (!this.isInitialized) return null;
         try {
-            console.log('📊 Fetching all chat logs for analytics...');
-            
-            const snapshot = await this.db.collection('chatlog')
-                .orderBy('createdAt', 'desc')
-                .get();
-            
-            const chatLogs = [];
-            snapshot.forEach(doc => {
-                const data = doc.data();
-                chatLogs.push({
-                    id: doc.id,
-                    userMessage: data.userMessage || data.message,
-                    aiResponse: data.aiResponse || data.response,
-                    sessionId: data.sessionId,
-                    hotel: data.hotel || data.detectedHotel || 'Unknown',
-                    language: data.language || data.detectedLanguage || 'unknown',
-                    timestamp: data.createdAt,
-                    metadata: data.metadata || {}
-                });
-            });
-
-            console.log(`📊 Retrieved ${chatLogs.length} chat logs for analysis`);
-            return chatLogs;
+            const doc = await this.db.collection('chats').doc(sessionId).get();
+            return doc.exists ? doc.data() : null;
         } catch (error) {
-            console.error('❌ Error getting all chat logs:', error);
-            throw error;
-        }
-    }
-
-    async ensureInitialized() {
-        console.log(`🔍 ensureInitialized called, isInitialized: ${this.isInitialized}`);
-        if (!this.isInitialized) {
-            console.log(`🔍 Firebase not initialized, calling initialize()...`);
-            await this.initialize();
-            console.log(`🔍 Initialize completed, isInitialized: ${this.isInitialized}`);
-        } else {
-            console.log(`🔍 Firebase already initialized, skipping...`);
+            console.error('❌ Error getting chat conversation:', error);
+            return null;
         }
     }
 }
 
-module.exports = new FirebaseService(); 
+async function getSpaCatalog(hotel, language) {
+    try {
+        const docRef = db.collection('knowledge').doc(`${hotel}_${language}_spa`);
+        const doc = await docRef.get();
+        if (doc.exists) {
+            console.log(`Retrieved SPA catalog for ${hotel} in ${language}`);
+            return doc.data().content;
+        } else {
+            console.log(`No SPA catalog found for ${hotel} in ${language}`);
+            return null;
+        }
+    } catch (error) {
+        console.error("Error fetching SPA catalog:", error);
+        return null;
+    }
+}
+
+async function storeChatConversation(sessionId, messages) {
+    // ... existing code ...
+    // ... existing code ...
+}
+
+module.exports = {
+    searchKnowledge,
+    getHotel,
+    getSpaCatalog,
+    storeChatConversation,
+    logQuestionForAnalysis
+}; 
