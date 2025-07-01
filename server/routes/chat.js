@@ -71,34 +71,16 @@ router.post('/', async (req, res) => {
             console.log('📍 This is a location query. Using PlacesService...');
             aiResult = await placesService.handleLocationQuery(message, hotel, detectedLanguage, userLocation);
         } else {
-            console.log('📚 This is a knowledge query. Fetching all relevant knowledge...');
-            
-            let combinedKnowledge = {};
-
-            // 1. Fetch general and daily knowledge
+            console.log('📚 This is a knowledge query. Using FirebaseService...');
             if (hotel) {
                 const knowledgeResult = await firebaseService.searchKnowledge(hotel, detectedLanguage);
                 if (knowledgeResult.success && knowledgeResult.content) {
-                    combinedKnowledge = { ...knowledgeResult.content };
-                    console.log(`🧠 General/Daily knowledge loaded for ${hotel}/${detectedLanguage}`);
+                    knowledgeContext = knowledgeResult.content;
+                    console.log(`🧠 Knowledge context loaded for ${hotel}/${detectedLanguage}`);
                 }
             }
-
-            // 2. Check for SPA context and fetch SPA catalog if needed
-            const isSpaQuery = await geminiService.isSpaQuery(message, history, detectedLanguage);
-            if (isSpaQuery && hotel) {
-                 const spaCatalog = await firebaseService.getSpaCatalog(hotel, detectedLanguage);
-                 if (spaCatalog) {
-                    combinedKnowledge.spa = spaCatalog;
-                    console.log(`🧖‍♀️ SPA Catalog loaded for ${hotel}/${detectedLanguage}`);
-                 }
-            }
-
-            // Convert the combined knowledge object to a JSON string to pass to the AI
-            const knowledgeContextString = Object.keys(combinedKnowledge).length > 0 ? JSON.stringify(combinedKnowledge) : null;
-
-            // 3. Generate AI response using the combined knowledge
-            aiResult = await geminiService.generateResponse(chatHistory, knowledgeContextString, detectedLanguage, userLocation);
+            // Generate AI response using knowledge context
+            aiResult = await geminiService.generateResponse(chatHistory, knowledgeContext, detectedLanguage, userLocation);
         }
 
         if (!aiResult.success) {

@@ -321,32 +321,4 @@ class FirebaseService {
     }
 }
 
-async function getSpaCatalog(hotel, language) {
-    try {
-        const docRef = db.collection('knowledge').doc(`${hotel}_${language}_spa`);
-        const doc = await docRef.get();
-        if (doc.exists) {
-            console.log(`Retrieved SPA catalog for ${hotel} in ${language}`);
-            return doc.data().content;
-        } else {
-            console.log(`No SPA catalog found for ${hotel} in ${language}`);
-            return null;
-        }
-    } catch (error) {
-        console.error("Error fetching SPA catalog:", error);
-        return null;
-    }
-}
-
-async function storeChatConversation(sessionId, messages) {
-    // ... existing code ...
-    // ... existing code ...
-}
-
-module.exports = {
-    searchKnowledge,
-    getHotel,
-    getSpaCatalog,
-    storeChatConversation,
-    logQuestionForAnalysis
-}; 
+module.exports = new FirebaseService(); 

@@ -19,7 +19,7 @@ class DocumentAIService {
     }
 
     async processDocument(fileBuffer, mimeType = 'application/pdf') {
-        if (!this.client) {
+            if (!this.client) {
             console.error('❌ Document AI client is not initialized. Cannot process document.');
             return { success: false, error: 'Document AI client not initialized.' };
         }
@@ -40,7 +40,7 @@ class DocumentAIService {
             console.log(`[DocumentAI] Processing document chunk with processor: ${this.processorId}`);
             const [result] = await this.client.processDocument(request);
             const { document } = result;
-            
+
             console.log(`[DocumentAI] Successfully extracted text from chunk.`);
             return {
                 success: true,

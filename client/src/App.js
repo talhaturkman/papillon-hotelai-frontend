@@ -3,7 +3,6 @@ import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-route
 import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
 import ChatInterface from './components/ChatInterface';
 import AdminPanel from './components/AdminPanel';
-import Navigation from './components/Navigation';
 import LocationPermission from './components/LocationPermission';
 import './App.css';
 

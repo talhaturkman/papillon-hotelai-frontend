@@ -4,7 +4,7 @@ class PlacesService {
     constructor() {
         this.apiKey = process.env.GOOGLE_CLOUD_API_KEY;
         this.baseUrl = 'https://maps.googleapis.com/maps/api/place';
-
+        
         this.hotelLocations = {
             'belvil': { name: 'Papillon Belvil Hotel', lat: 36.8626, lng: 31.0503, address: 'Belek, Antalya' },
             'zeugma': { name: 'Papillon Zeugma Hotel', lat: 36.8626, lng: 31.0503, address: 'Belek, Antalya' },
@@ -14,13 +14,13 @@ class PlacesService {
 
     isLocationQuery(message) {
         const lowerMessage = message.toLowerCase();
-
+        
         const travelPhrases = [ 'how far is', 'show me cafes', 'show me restaurants', 'any points of interest', 'wie weit ist', 'zeig mir cafés', 'gibt es interessante', 'как далеко', 'какие интересные', 'покажи мне кафе', 'есть ли интересные', 'places to visit', 'best places', 'things to do', 'tourist attractions', 'sightseeing', 'visit in', 'explore in', 'closest destination', 'nearest place', 'nearest attraction', 'distance from', 'how far', 'points of interest', 'best destinations', 'local attractions', 'spots to explore', 'places worth visiting', 'gezilecek yerler', 'görülecek yerler', 'yapılacak şeyler', 'turist yerleri', 'gezi yerleri', 'en yakın yer', 'mesafe ne kadar', 'ne kadar uzak', 'hangi mesafede', 'ilgi çekici yerler', 'sehenswürdigkeiten', 'touristenattraktionen', 'was zu besuchen', 'orte zu besuchen', 'interessante orte', 'beste orte', 'sehenswerte orte', 'nächste sehenswürdigkeit', 'lokale attraktionen', 'orte zum erkunden', 'besuchenswerte orte', 'nächstes ziel', 'interessante punkte', 'места для посещения', 'туристические места', 'достопримечательности для посещения', 'интересные места', 'лучшие места', 'достойные места', 'ближайшая достопримечательность', 'местные достопримечательности', 'места для изучения', 'стоящие места', 'ближайшее место', 'как далеко до', 'интересные точки' ];
         if (travelPhrases.some(phrase => lowerMessage.includes(phrase))) {
             console.log(`✈️ Backend: Travel phrase detected: "${message}" → true`);
             return true;
         }
-
+        
         const locationIndicators = { 'tr': ['yakın', 'yakında', 'nerede', 'nasıl gidilir', 'mesafe', 'en yakın', 'çevredeki', 'çevrede', 'bu bölgedeki', 'bölgede'], 'en': ['near', 'nearby', 'where', 'how to get', 'distance', 'closest', 'nearest', 'show me', 'how far', 'close by', 'around here', 'around', 'within', 'accessible from', 'in the vicinity', 'vicinity', 'show'], 'de': ['in der nähe', 'wo', 'wie komme ich', 'entfernung', 'nächste', 'nah', 'zeig mir', 'zeigen', 'wie weit', 'in der nähe von', 'hier in der umgebung', 'umgebung', 'innerhalb', 'erreichbar von', 'in der gegend', 'ganz nah'], 'ru': ['рядом', 'где', 'как добраться', 'расстояние', 'ближайший', 'близко', 'покажи мне', 'показать', 'как далеко', 'поблизости от', 'здесь поблизости', 'окрестности', 'в пределах', 'доступно от', 'в районе', 'совсем близко'] };
         const placeTypes = {
             'tr': ['restoran', 'market', 'hastane', 'eczane', 'atm', 'banka', 'alışveriş', 'mall', 'avm', 'cafe', 'bar', 'plaj', 'müze', 'taksi', 'havaalanı',
@@ -35,8 +35,8 @@ class PlacesService {
         const hotelQuestions = { 'tr': ['hangi restoran', 'otel restoran', 'kahvaltı', 'akşam yemeği', 'saat kaç', 'ne zaman', 'rezervasyon', 'tuvalet', 'wc', 'banyo', 'lavabo'], 'en': ['which restaurant', 'hotel restaurant', 'breakfast', 'dinner', 'what time', 'when', 'reservation', 'restroom', 'bathroom', 'toilet', 'washroom'], 'de': ['welches restaurant', 'hotel restaurant', 'frühstück', 'abendessen', 'wann', 'reservierung', 'toilette', 'bad', 'waschraum'], 'ru': ['какой ресторан', 'ресторан отеля', 'завтрак', 'ужин', 'во сколько', 'когда', 'бронирование', 'туалет', 'ванная', 'уборная'] };
 
         if (Object.values(hotelQuestions).some(questions => questions.some(q => lowerMessage.includes(q)))) {
-            console.log(`🏨 Backend: Hotel context question detected: "${message}" → false`);
-            return false;
+                console.log(`🏨 Backend: Hotel context question detected: "${message}" → false`);
+                return false;
         }
 
         let hasLocationIndicator = Object.values(locationIndicators).some(indicators => indicators.some(indicator => lowerMessage.includes(indicator)));
@@ -66,7 +66,7 @@ class PlacesService {
             if (response.data.status === 'OK' && response.data.results.length > 0) {
                 return response.data.results.slice(0, 5);
             }
-
+            
             console.log(`🔄 Retrying with keyword search...`);
             params = { location: `${hotelLocation.lat},${hotelLocation.lng}`, radius: radius, keyword: `${query} ${hotelLocation.address}`, key: this.apiKey, language: language };
             console.log(`📋 Places API params (keyword search):`, params);
@@ -129,15 +129,15 @@ class PlacesService {
 
     async handleLocationQuery(userMessage, hotelContext = null, userLanguage = 'tr', userLocation = null) {
         const t = this.getTranslations(userLanguage);
-        let searchLocation;
+            let searchLocation;
 
-        if (userLocation && userLocation.lat && userLocation.lng) {
+            if (userLocation && userLocation.lat && userLocation.lng) {
             searchLocation = userLocation;
             console.log(`📍 Using user's provided GPS location: (${userLocation.lat}, ${userLocation.lng})`);
         } else if (hotelContext) {
             searchLocation = this.getHotelLocation(hotelContext);
             console.log(`🏨 User location not available. Using hotel context: ${hotelContext}`);
-        } else {
+                } else {
             console.log(`🤷 No location context. Asking user to specify hotel.`);
             return { success: true, response: t.askForHotel, placesData: null };
         }
@@ -153,7 +153,7 @@ class PlacesService {
                 response: formattedPlaces.text,
                 placesData: {
                     list: formattedPlaces.list,
-                    searchQuery: searchQuery,
+                searchQuery: searchQuery,
                     searchLocation: searchLocation
                 }
             };
@@ -188,10 +188,10 @@ class PlacesService {
             console.log(`⚡ Fast keyword detection: "${message}" → true`);
             return true;
         }
-
+        
         const lowerMessage = message.toLowerCase();
         const hasBorderlineKeywords = ['nerede', 'ne kadar', 'nasıl', 'hangi', 'var mı', 'where', 'how far', 'any', 'which', 'are there', 'wo', 'wie weit', 'gibt es', 'welche', 'где', 'как далеко', 'есть ли', 'какие'].some(keyword => lowerMessage.includes(keyword));
-
+        
         if (hasBorderlineKeywords) {
             console.log(`🤔 Borderline query detected, using AI: "${message}"`);
             const geminiService = require('./gemini');
@@ -200,10 +200,10 @@ class PlacesService {
             console.log(`🧠 AI override result: "${message}" → ${aiResult}`);
             return aiResult;
         }
-
+        
         console.log(`❌ Clear non-location query: "${message}" → false`);
         return false;
     }
 }
 
-module.exports = new PlacesService();
+module.exports = new PlacesService(); 
