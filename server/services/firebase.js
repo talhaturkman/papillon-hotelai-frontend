@@ -9,6 +9,57 @@ class FirebaseService {
         this.initializationPromise = null;
     }
 
+    // Helper method for getting today and yesterday dates
+    getDates() {
+        // Get the actual current date from the system
+        const now = new Date();
+        
+        // For debugging
+        console.log(`[Knowledge Search] System date check:`, {
+            rawNow: now.toISOString(),
+            localTime: now.toLocaleString(),
+            systemTimezone: now.getTimezoneOffset()
+        });
+
+        // Get UTC date components from local time
+        const utcYear = now.getUTCFullYear();
+        const utcMonth = now.getUTCMonth();
+        const utcDate = now.getUTCDate();
+        
+        // Create dates using UTC time
+        const todayUTC = new Date(Date.UTC(utcYear, utcMonth, utcDate));
+        const yesterdayUTC = new Date(Date.UTC(utcYear, utcMonth, utcDate - 1));
+
+        // Create local dates for display
+        const today = new Date(todayUTC);
+        const yesterday = new Date(yesterdayUTC);
+
+        // Create timestamp ranges
+        const todayStart = admin.firestore.Timestamp.fromDate(todayUTC);
+        const todayEnd = admin.firestore.Timestamp.fromDate(new Date(todayUTC.getTime() + 24 * 60 * 60 * 1000 - 1));
+        const yesterdayStart = admin.firestore.Timestamp.fromDate(yesterdayUTC);
+        const yesterdayEnd = admin.firestore.Timestamp.fromDate(new Date(yesterdayUTC.getTime() + 24 * 60 * 60 * 1000 - 1));
+
+        // For debugging
+        console.log(`[Knowledge Search] Date ranges:`, {
+            localToday: today.toLocaleString(),
+            localYesterday: yesterday.toLocaleString(),
+            todayStart: new Date(todayStart.seconds * 1000).toISOString(),
+            todayEnd: new Date(todayEnd.seconds * 1000).toISOString(),
+            yesterdayStart: new Date(yesterdayStart.seconds * 1000).toISOString(),
+            yesterdayEnd: new Date(yesterdayEnd.seconds * 1000).toISOString()
+        });
+
+        return {
+            todayStart,
+            todayEnd,
+            yesterdayStart,
+            yesterdayEnd,
+            todayDate: todayUTC.toISOString().split('T')[0],
+            yesterdayDate: yesterdayUTC.toISOString().split('T')[0]
+        };
+    }
+
     async initialize() {
         if (this.isInitialized) return;
 
@@ -111,24 +162,116 @@ class FirebaseService {
         }
     }
 
-    async logQuestionForAnalysis(data) {
+    async logQuestionForAnalysis(questionData) {
         await this.ensureInitialized();
-        if (!this.isInitialized) return;
+        if (!this.isInitialized) return null;
         try {
-            if (!data.message || data.message.trim() === '') return;
-            const logRef = this.db.collection('questions_log').doc();
-            await logRef.set({ ...data, createdAt: admin.firestore.FieldValue.serverTimestamp() });
+            const docRef = await this.db.collection('questions_log').add({
+                ...questionData,
+                createdAt: new Date().toISOString(),
+                preprocessed: true
+            });
+            return docRef.id;
         } catch (error) {
-            console.error('❌ Error logging question for analysis:', error);
+            console.error('Failed to log question:', error);
+            return null;
         }
     }
 
-    async getAllQuestions(limit = 1000) {
+    async getAllQuestions(limit = 2000) {
         await this.ensureInitialized();
         if (!this.isInitialized) return [];
         try {
-            const snapshot = await this.db.collection('questions_log').orderBy('createdAt', 'desc').limit(limit).get();
-            return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const allQuestions = [];
+            let query = this.db.collection('questions_log').orderBy('createdAt', 'desc');
+            
+            // First batch
+            let snapshot = await query.limit(limit).get();
+            
+            console.log(`📊 Retrieved ${snapshot.size} documents in first batch`);
+            
+            // Process each document
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                console.log(`\n📄 Document ${doc.id}:`, JSON.stringify(data, null, 2));
+                
+                // Skip invalid data
+                if (!data) {
+                    console.log(`⚠️ Skipping invalid document: ${doc.id}`);
+                    return;
+                }
+
+                // Normalize the data
+                const normalizedQuestion = {
+                    id: doc.id,
+                    message: data.message || data.text || '',
+                    timestamp: data.createdAt || data.timestamp || new Date().toISOString(),
+                    language: data.detectedLanguage || data.language || 'unknown',
+                    hotel: data.detectedHotel || data.hotel || 'Unknown',
+                    category: data.category || 'general',
+                    facility: data.facility || null,
+                    isQuestion: data.isQuestion || false,
+                    preprocessed: data.preprocessed || false,
+                    sessionId: data.sessionId || 'default'
+                };
+
+                console.log(`✅ Normalized question:`, JSON.stringify(normalizedQuestion, null, 2));
+
+                // Only add questions with actual content
+                if (normalizedQuestion.message.trim()) {
+                    allQuestions.push(normalizedQuestion);
+                } else {
+                    console.log(`⚠️ Skipping empty message in document: ${doc.id}`);
+                }
+            });
+            
+            // If we got a full batch, there might be more
+            while (snapshot.docs.length === limit && allQuestions.length < 5000) {
+                const lastDoc = snapshot.docs[snapshot.docs.length - 1];
+                snapshot = await query.startAfter(lastDoc).limit(limit).get();
+                
+                console.log(`📊 Retrieved ${snapshot.size} documents in next batch`);
+                
+                // Process additional documents
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    console.log(`\n📄 Document ${doc.id}:`, JSON.stringify(data, null, 2));
+                    
+                    if (!data) {
+                        console.log(`⚠️ Skipping invalid document: ${doc.id}`);
+                        return;
+                    }
+
+                    const normalizedQuestion = {
+                        id: doc.id,
+                        message: data.message || data.text || '',
+                        timestamp: data.createdAt || data.timestamp || new Date().toISOString(),
+                        language: data.detectedLanguage || data.language || 'unknown',
+                        hotel: data.detectedHotel || data.hotel || 'Unknown',
+                        category: data.category || 'general',
+                        facility: data.facility || null,
+                        isQuestion: data.isQuestion || false,
+                        preprocessed: data.preprocessed || false,
+                        sessionId: data.sessionId || 'default'
+                    };
+
+                    console.log(`✅ Normalized question:`, JSON.stringify(normalizedQuestion, null, 2));
+
+                    if (normalizedQuestion.message.trim()) {
+                        allQuestions.push(normalizedQuestion);
+                    } else {
+                        console.log(`⚠️ Skipping empty message in document: ${doc.id}`);
+                    }
+                });
+            }
+            
+            console.log(`\n📊 Final summary:`);
+            console.log(`Total questions retrieved: ${allQuestions.length}`);
+            if (allQuestions.length > 0) {
+                console.log('Sample of first 3 normalized questions:', JSON.stringify(allQuestions.slice(0, 3), null, 2));
+            }
+
+            return allQuestions;
         } catch (error) {
             console.error('❌ Error getting all questions:', error);
             return [];
@@ -161,28 +304,54 @@ class FirebaseService {
         await this.ensureInitialized();
         if (!this.isInitialized) return { success: false, error: 'Firebase not initialized' };
 
+        // Normalize kind to match Firebase document names
+        const normalizedKind = kind.charAt(0).toUpperCase() + kind.slice(1).toLowerCase();
+
+        // For daily content, ensure we always have a date
+        if (normalizedKind === 'Daily') {
+            if (!documentDate) {
+                // If no date provided, use current UTC date
+                const now = new Date();
+                documentDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+                console.log(`[Firestore] No date provided for daily content, using current UTC date:`, documentDate.toISOString());
+            } else {
+                // If date provided, ensure it's set to UTC midnight
+                const year = documentDate.getFullYear();
+                const month = documentDate.getMonth();
+                const date = documentDate.getDate();
+                documentDate = new Date(Date.UTC(year, month, date));
+            }
+            
+            console.log(`[Firestore] Storing daily content for date:`, {
+                utcDate: documentDate.toISOString(),
+                localDate: new Date(documentDate).toLocaleString()
+            });
+        }
+
         const kindDocRef = this.db.collection('knowledge_base').doc('Papillon')
             .collection(hotel).doc(language)
-            .collection('kinds').doc(kind);
+            .collection('kinds').doc(normalizedKind);
 
         const chunksCollectionRef = kindDocRef.collection('chunks');
         const chunks = this.chunkText(content);
         
-        console.log(`[Firestore] Storing ${chunks.length} chunks to path: Papillon/${hotel}/${language}/kinds/${kind}/chunks`);
+        console.log(`[Firestore] Storing knowledge to: Papillon/${hotel}/${language}/kinds/${normalizedKind}`);
 
+        // Clear existing chunks if any
         const snapshot = await chunksCollectionRef.get();
         if (!snapshot.empty) {
-            console.log(`[Firestore] Deleting ${snapshot.size} old chunks from /${kind}/...`);
             const deleteBatch = this.db.batch();
             snapshot.docs.forEach(doc => deleteBatch.delete(doc.ref));
             await deleteBatch.commit();
         }
         
+        // Store new chunks
         const writeBatch = this.db.batch();
         chunks.forEach((chunk, index) => {
             const docRef = chunksCollectionRef.doc(`chunk_${index}`);
             const data = { text: chunk };
-            if (kind === 'daily' && documentDate) {
+            if (normalizedKind === 'Daily') {
+                // Always set date for daily content
                 data.date = admin.firestore.Timestamp.fromDate(documentDate);
             }
             writeBatch.set(docRef, data);
@@ -195,7 +364,7 @@ class FirebaseService {
         }, { merge: true });
 
         await writeBatch.commit();
-        console.log(`[Firestore] Successfully stored ${chunks.length} new chunks.`);
+        console.log(`[Firestore] Successfully stored ${chunks.length} chunks`);
         return { success: true, chunks: chunks.length };
     }
 
@@ -203,64 +372,192 @@ class FirebaseService {
         await this.ensureInitialized();
         if (!this.isInitialized) return { success: false, content: '' };
 
+        // Normalize hotel name to match Firestore structure
+        const normalizedHotel = hotel ? hotel.charAt(0).toUpperCase() + hotel.slice(1).toLowerCase() : null;
+        console.log(`[Knowledge Search] Starting search for hotel: ${hotel} (normalized: ${normalizedHotel}), language: ${language}`);
+
+        if (!normalizedHotel || !['Belvil', 'Zeugma', 'Ayscha'].includes(normalizedHotel)) {
+            console.log(`[Knowledge Search] Invalid hotel name: ${hotel}`);
+            return { success: false, content: '' };
+        }
+
         const languagePriorities = [language, 'en', 'tr', 'de', 'ru'].filter((v, i, a) => a.indexOf(v) === i);
+        console.log(`[Knowledge Search] Language priority order: ${languagePriorities.join(', ')}`);
+        
         let foundGeneral = null;
         let foundDaily = null;
         let foundSpa = null;
 
-        const getDates = () => {
-            const today = new Date();
-            today.setUTCHours(0, 0, 0, 0);
-            const yesterday = new Date(today);
-            yesterday.setDate(today.getDate() - 1);
-            return {
-                today: admin.firestore.Timestamp.fromDate(today),
-                yesterday: admin.firestore.Timestamp.fromDate(yesterday)
-            };
-        };
-        const { today, yesterday } = getDates();
+        const dates = this.getDates();
+        const { todayStart, todayEnd, yesterdayStart, yesterdayEnd, todayDate, yesterdayDate } = dates;
 
         const searchInLanguage = async (lang) => {
+            const path = `knowledge_base/Papillon/${normalizedHotel}/${lang}/kinds`;
+            console.log(`[Knowledge Search] Checking path: ${path}`);
+            
             const kindsCollectionRef = this.db.collection('knowledge_base').doc('Papillon')
-                .collection(hotel).doc(lang)
+                .collection(normalizedHotel).doc(lang)
                 .collection('kinds');
 
-            const generalChunks = (await kindsCollectionRef.doc('general').collection('chunks').get()).docs.map(doc => doc.data().text);
-            const dailyChunksSnapshot = await kindsCollectionRef.doc('daily').collection('chunks').get();
-            const spaChunks = (await kindsCollectionRef.doc('spa').collection('chunks').get()).docs.map(doc => doc.data().text);
+            try {
+                // Check if the general document exists first
+                const generalDoc = await kindsCollectionRef.doc('General').get();
+                console.log(`[Knowledge Search] General doc exists: ${generalDoc.exists}`);
+                if (generalDoc.exists) {
+                    console.log(`[Knowledge Search] General doc data:`, generalDoc.data());
+                }
+                
+                // Get general chunks
+                const generalChunksSnapshot = await kindsCollectionRef.doc('General').collection('chunks').get();
+                const generalChunks = generalChunksSnapshot.docs.map(doc => doc.data().text);
+                console.log(`[Knowledge Search] Found ${generalChunks.length} general chunks`);
+                
+                // Get daily chunks
+                const dailyChunksSnapshot = await kindsCollectionRef.doc('Daily').collection('chunks').get();
+                console.log(`[Knowledge Search] Found ${dailyChunksSnapshot.size} daily chunks`);
+                
+                // Log all daily chunks dates for debugging
+                if (!dailyChunksSnapshot.empty) {
+                    console.log(`[Knowledge Search] All daily chunks in ${lang}:`, 
+                        dailyChunksSnapshot.docs.map(doc => {
+                            const data = doc.data();
+                            return {
+                                id: doc.id,
+                                date: data.date ? new Date(data.date.seconds * 1000).toISOString() : 'no date',
+                                seconds: data.date?.seconds
+                            };
+                        })
+                    );
+
+                    // Log date ranges for comparison
+                    console.log(`[Knowledge Search] Date ranges for comparison:`, {
+                        todayStart: new Date(todayStart.seconds * 1000).toISOString(),
+                        todayStartSeconds: todayStart.seconds,
+                        todayEnd: new Date(todayEnd.seconds * 1000).toISOString(),
+                        todayEndSeconds: todayEnd.seconds,
+                        yesterdayStart: new Date(yesterdayStart.seconds * 1000).toISOString(),
+                        yesterdayStartSeconds: yesterdayStart.seconds,
+                        yesterdayEnd: new Date(yesterdayEnd.seconds * 1000).toISOString(),
+                        yesterdayEndSeconds: yesterdayEnd.seconds
+                    });
+                }
+                
+                // Get spa chunks
+                const spaChunksSnapshot = await kindsCollectionRef.doc('Spa').collection('chunks').get();
+                const spaChunks = spaChunksSnapshot.docs.map(doc => doc.data().text);
+                console.log(`[Knowledge Search] Found ${spaChunks.length} spa chunks`);
 
             let todayContent = [];
             let yesterdayContent = [];
             if (!dailyChunksSnapshot.empty) {
                 dailyChunksSnapshot.forEach(doc => {
                     const data = doc.data();
-                    if (data.date) {
-                        if (data.date.isEqual(today)) todayContent.push(data.text);
-                        else if (data.date.isEqual(yesterday)) yesterdayContent.push(data.text);
+                        if (!data.date) {
+                            console.warn(`[Knowledge Search] ⚠️ Daily chunk found without date:`, {
+                                id: doc.id,
+                                text: data.text?.substring(0, 100) + '...' // Log first 100 chars of content
+                            });
+                            return;
+                        }
+                        if (data.text && data.date) {
+                            const chunkDate = new Date(data.date.seconds * 1000);
+                            console.log(`[Knowledge Search] Analyzing daily chunk date:`, {
+                                id: doc.id,
+                                chunkDate: chunkDate.toISOString(),
+                                chunkSeconds: data.date.seconds,
+                                todayStartSeconds: todayStart.seconds,
+                                todayEndSeconds: todayEnd.seconds,
+                                yesterdayStartSeconds: yesterdayStart.seconds,
+                                yesterdayEndSeconds: yesterdayEnd.seconds
+                            });
+
+                            // Check if date falls within today's or yesterday's range
+                            if (data.date.seconds >= todayStart.seconds && data.date.seconds <= todayEnd.seconds) {
+                                todayContent.push(data.text);
+                                console.log(`[Knowledge Search] ✅ Found today's (${todayDate}) chunk:`, { 
+                                    id: doc.id, 
+                                    timestamp: chunkDate.toISOString() 
+                                });
+                            }
+                            else if (data.date.seconds >= yesterdayStart.seconds && data.date.seconds <= yesterdayEnd.seconds) {
+                                yesterdayContent.push(data.text);
+                                console.log(`[Knowledge Search] ✅ Found yesterday's (${yesterdayDate}) chunk:`, { 
+                                    id: doc.id, 
+                                    timestamp: chunkDate.toISOString() 
+                                });
+                            } else {
+                                console.log(`[Knowledge Search] ❌ Daily chunk outside target dates:`, { 
+                                    id: doc.id, 
+                                    chunkDate: chunkDate.toISOString(),
+                                    today: new Date(todayStart.seconds * 1000).toISOString(),
+                                    yesterday: new Date(yesterdayStart.seconds * 1000).toISOString()
+                                });
+                            }
                     }
                 });
             }
-            return {
+                
+                console.log(`[Knowledge Search] Daily content - Today (${todayDate}): ${todayContent.length} chunks, Yesterday (${yesterdayDate}): ${yesterdayContent.length} chunks`);
+                
+                const result = {
                 general: generalChunks.join('\n\n'),
                 dailyToday: todayContent.join('\n\n'),
                 dailyYesterday: yesterdayContent.join('\n\n'),
                 spa: spaChunks.join('\n\n'),
-            };
+                    dates: {
+                        today: todayDate,
+                        yesterday: yesterdayDate,
+                        hasTodayContent: todayContent.length > 0,
+                        hasYesterdayContent: yesterdayContent.length > 0
+                    }
+                };
+
+                // Log final content summary
+                console.log(`[Knowledge Search] Content found:`, {
+                    general: result.general.length > 0,
+                    dailyToday: result.dailyToday.length > 0,
+                    dailyYesterday: result.dailyYesterday.length > 0,
+                    spa: result.spa.length > 0,
+                    dates: result.dates
+                });
+
+                return result;
+            } catch (error) {
+                console.error(`[Knowledge Search] Error searching in ${path}:`, error);
+                return {
+                    general: '',
+                    dailyToday: '',
+                    dailyYesterday: '',
+                    spa: '',
+                    dates: {
+                        today: todayDate,
+                        yesterday: yesterdayDate,
+                        hasTodayContent: false,
+                        hasYesterdayContent: false
+                    }
+                };
+            }
         };
 
         for (const lang of languagePriorities) {
+            console.log(`[Knowledge Search] Trying language: ${lang}`);
             const results = await searchInLanguage(lang);
+            
             if (!foundGeneral && results.general) {
                 foundGeneral = results.general;
-                console.log(`[Knowledge Search] SUCCESS: Found GENERAL info in fallback language: ${lang}`);
+                console.log(`[Knowledge Search] SUCCESS: Found GENERAL info in language: ${lang}`);
             }
             if (!foundDaily && (results.dailyToday || results.dailyYesterday)) {
-                foundDaily = { today: results.dailyToday, yesterday: results.dailyYesterday };
-                 console.log(`[Knowledge Search] SUCCESS: Found DAILY info in fallback language: ${lang}`);
+                foundDaily = { 
+                    today: results.dailyToday, 
+                    yesterday: results.dailyYesterday,
+                    dates: results.dates 
+                };
+                console.log(`[Knowledge Search] SUCCESS: Found DAILY info in language: ${lang}`);
             }
             if (!foundSpa && results.spa) {
                 foundSpa = results.spa;
-                console.log(`[Knowledge Search] SUCCESS: Found SPA info in fallback language: ${lang}`);
+                console.log(`[Knowledge Search] SUCCESS: Found SPA info in language: ${lang}`);
             }
             if (foundGeneral && foundDaily && foundSpa) break;
         }
@@ -271,18 +568,27 @@ class FirebaseService {
         }
         if (foundDaily) {
             if (foundDaily.today) {
-                finalContent += `### Daily Information (Today) ###\n${foundDaily.today}\n\n`;
+                finalContent += `### Daily Information (${foundDaily.dates.today}) ###\n${foundDaily.today}\n\n`;
+            } else {
+                console.log(`[Knowledge Search] No information available for today (${foundDaily.dates.today})`);
             }
             if (foundDaily.yesterday) {
-                finalContent += `### Daily Information (Yesterday) ###\n${foundDaily.yesterday}\n\n`;
+                finalContent += `### Daily Information (${foundDaily.dates.yesterday}) ###\n${foundDaily.yesterday}\n\n`;
             }
         }
         if (foundSpa) {
             finalContent += `### SPA Information ###\n${foundSpa}\n\n`;
         }
         
+        const success = finalContent.length > 0;
+        const dailyDates = foundDaily?.dates || { today: todayDate, yesterday: yesterdayDate, hasTodayContent: false, hasYesterdayContent: false };
+        
         console.log(`[Knowledge Search] Final check. General: ${!!foundGeneral}, Daily: ${!!foundDaily}, SPA: ${!!foundSpa}. Length: ${finalContent.length}`);
-        return { success: finalContent.length > 0, content: finalContent };
+        return { 
+            success, 
+            content: finalContent,
+            dates: dailyDates
+        };
     }
 
     async getAvailableHotels() {
@@ -317,6 +623,90 @@ class FirebaseService {
         } catch (error) {
             console.error('❌ Error getting chat conversation:', error);
             return null;
+        }
+    }
+
+    async getSessionQuestions(sessionId) {
+        await this.ensureInitialized();
+        if (!this.isInitialized) return [];
+        try {
+            // Simplified query that doesn't require a composite index
+            const questionsRef = this.db.collection('questions_log');
+            const snapshot = await questionsRef
+                .where('sessionId', '==', sessionId)
+                .get();
+
+            if (snapshot.empty) {
+                return [];
+            }
+
+            // Sort in memory instead of in the query
+            return snapshot.docs
+                .map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }))
+                .sort((a, b) => {
+                    const timeA = a.timestamp ? new Date(a.timestamp) : new Date(0);
+                    const timeB = b.timestamp ? new Date(b.timestamp) : new Date(0);
+                    return timeB - timeA; // descending order
+                });
+        } catch (error) {
+            console.error('Failed to get session questions:', error);
+            return [];
+        }
+    }
+
+    async updateQuestionHotel(questionId, hotel) {
+        try {
+            const questionRef = this.db.collection('questions_log').doc(questionId);
+            await questionRef.update({
+                detectedHotel: hotel,
+                updatedAt: new Date().toISOString()
+            });
+            console.log(`✅ Updated hotel context for question ${questionId}`);
+            return true;
+        } catch (error) {
+            console.error('Failed to update question hotel:', error);
+            return false;
+        }
+    }
+
+    async getRecentHotelUpdates(minutes = 5) {
+        try {
+            const cutoffTime = new Date(Date.now() - minutes * 60 * 1000);
+            const questionsRef = this.db.collection('questions_log');
+            
+            // First get all recently updated documents
+            const snapshot = await questionsRef
+                .where('updatedAt', '>=', cutoffTime.toISOString())
+                .get();
+
+            // Then filter for hotel updates in memory
+            const updatedDocs = snapshot.docs.filter(doc => {
+                const data = doc.data();
+                return data.detectedHotel !== null && data.detectedHotel !== undefined;
+            });
+
+            return {
+                size: updatedDocs.length,
+                docs: updatedDocs
+            };
+        } catch (error) {
+            console.error('Failed to get recent hotel updates:', error);
+            return { size: 0, docs: [] };
+        }
+    }
+
+    async updateQuestionAnalytics(questionId, analyticsData) {
+        await this.ensureInitialized();
+        if (!this.isInitialized) return false;
+        try {
+            await this.db.collection('questions_log').doc(questionId).update(analyticsData);
+            return true;
+        } catch (error) {
+            console.error('Failed to update question analytics:', error);
+            return false;
         }
     }
 }

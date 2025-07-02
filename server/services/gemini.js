@@ -8,6 +8,40 @@ class GeminiService {
         this.model = process.env.GEMINI_MODEL || 'gemini-1.5-flash-latest';
         this.apiKey = process.env.GEMINI_API_KEY;
         this.googleApi = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+        // Keywords in different languages
+        this.keywords = {
+            hospital: ['hastane', 'hospital', 'krankenhaus', 'больница'],
+            pharmacy: ['eczane', 'pharmacy', 'apotheke', 'аптека'],
+            beach: ['plaj', 'beach', 'strand', 'пляж'],
+            museum: ['müze', 'museum', 'museum', 'музей'],
+            taxi: ['taksi', 'taxi', 'taxi', 'такси'],
+            airport: ['havaalanı', 'airport', 'flughafen', 'аэропорт'],
+            amusement_park: ['lunapark', 'amusement park', 'theme park', 'vergnügungspark', 'парк развлечений'],
+            aquarium: ['akvaryum', 'aquarium', 'aquarium', 'аквариум'],
+            zoo: ['hayvanat bahçesi', 'zoo', 'tiergarten', 'зоопарк'],
+            shopping_mall: ['avm', 'alışveriş merkezi', 'shopping mall', 'shopping center', 'einkaufszentrum', 'торговый центр'],
+            restaurant: ['restoran', 'restaurant', 'restaurant', 'ресторан'],
+            cafe: ['kafe', 'cafe', 'café', 'кафе'],
+            bar: ['bar', 'bar', 'bar', 'бар']
+        };
+
+        // Google Places types mapping
+        this.placeTypes = {
+            'amusement_park': 'amusement_park',
+            'aquarium': 'aquarium',
+            'zoo': 'zoo',
+            'shopping_mall': 'shopping_mall',
+            'restaurant': 'restaurant',
+            'cafe': 'cafe',
+            'bar': 'bar',
+            'beach': 'natural_feature',
+            'museum': 'museum',
+            'hospital': 'hospital',
+            'pharmacy': 'pharmacy',
+            'taxi': 'taxi_stand',
+            'airport': 'airport'
+        };
     }
         
     initialize() {
@@ -193,27 +227,251 @@ ${context}
         return null;
     }
 
-    async isLocationQueryAI(message, history, language = 'tr') {
-        const translations = {
-            'en': `You are a location detection specialist. Your only job is to determine if the user is asking for a location, address, or directions. Respond with only "yes" or "no". Do not say anything else.`,
-            'de': `Sie sind ein Spezialist für die Standorterkennung. Ihre einzige Aufgabe ist es festzustellen, ob der Benutzer nach einem Ort, einer Adresse oder einer Wegbeschreibung fragt. Antworten Sie nur mit "ja" oder "nein". Sagen Sie nichts anderes.`,
-            'ru': `Вы специалист по определению местоположения. Ваша единственная задача - определить, запрашивает ли пользователь местоположение, адрес или маршрут. Ответьте только "да" или "нет". Больше ничего не говорите.`,
-            'tr': `Sen bir konum tespit uzmanısın. Tek görevin kullanıcının bir yer, adres veya yol tarifi isteyip istemediğini belirlemek. Sadece "evet" veya "hayır" ile cevap ver. Başka hiçbir şey söyleme.`
+    async analyzeLocationQuery(message, history, language = 'tr') {
+        const systemPrompts = {
+            'tr': `Sen bir otel asistanısın ve konum sorularını analiz ediyorsun. Soruyu analiz et ve şu kategorilerden birine yerleştir:
+
+            1. OTEL_İÇİ: Otel içindeki yerler (restoranlar, havuz, spa, lobi, bar vs.)
+            2. ACİL_DURUM: Acil servisler (hastane, eczane, polis vs.)
+            3. TURİSTİK: Turistik yerler (plaj, müze, alışveriş merkezi vs.)
+            4. ULAŞIM: Ulaşım noktaları (havaalanı, taksi durağı, otobüs durağı vs.)
+            5. DİĞER: Diğer dış mekan soruları
+
+            Soru: "${message}"
+
+            SADECE aşağıdaki JSON formatında yanıt ver (başka hiçbir metin ekleme):
+            {
+                "category": "KATEGORİ_ADI",
+                "confidence": 0.0-1.0 arası güven skoru,
+                "isHotelAmenity": true/false
+            }`,
+
+            'en': `You are a hotel assistant analyzing location questions. Analyze the question and categorize it into one of these categories:
+
+            1. HOTEL_INTERNAL: Places inside hotel (restaurants, pool, spa, lobby, bar etc.)
+            2. EMERGENCY: Emergency services (hospital, pharmacy, police etc.)
+            3. TOURIST: Tourist spots (beach, museum, shopping mall etc.)
+            4. TRANSPORT: Transportation points (airport, taxi stand, bus stop etc.)
+            5. OTHER: Other external location questions
+
+            Question: "${message}"
+
+            Respond ONLY with the following JSON format (do not add any other text):
+            {
+                "category": "CATEGORY_NAME",
+                "confidence": confidence score between 0.0-1.0,
+                "isHotelAmenity": true/false
+            }`
         };
-        const systemPrompt = translations[language] || translations['en'];
+
+        const prompt = systemPrompts[language] || systemPrompts['en'];
         const strictConfig = {
             temperature: 0,
-            maxOutputTokens: 2,
+            maxOutputTokens: 100,
         };
 
         try {
-            const result = await this.generateResponse(history, null, language, null, systemPrompt, strictConfig);
-            const decision = result.response.trim().toLowerCase();
-            console.log(`[AI Location Detection] Raw AI decision: "${decision}" for message: "${message}"`);
-            return decision.includes('evet') || decision.includes('yes');
+            const result = await this.generateResponse(history, null, language, null, prompt, strictConfig);
+            let jsonStr = result.response.trim();
+            
+            // Clean up any potential markdown formatting
+            if (jsonStr.startsWith('```json')) {
+                jsonStr = jsonStr.replace(/```json\n/, '').replace(/```$/, '');
+            } else if (jsonStr.startsWith('```')) {
+                jsonStr = jsonStr.replace(/```\n/, '').replace(/```$/, '');
+            }
+            
+            const analysis = JSON.parse(jsonStr.trim());
+            
+            console.log(`[Location Analysis] Query: "${message}" → Category: ${analysis.category}, Confidence: ${analysis.confidence}, Is Hotel Amenity: ${analysis.isHotelAmenity}`);
+            
+            return analysis;
         } catch (error) {
-            console.error('Error in AI location detection:', error);
-            return false; // Default to false on error
+            console.error('Error in location query analysis:', error);
+            return {
+                category: 'OTHER',
+                confidence: 0.5,
+                isHotelAmenity: false
+            };
+        }
+    }
+
+    async extractSearchIntent(query, language) {
+        const prompt = `Analyze this location query and determine what type of place the user is looking for.
+Query: "${query}"
+
+Return ONLY ONE of these exact place types that best matches the query intent:
+- amusement_park (for theme parks, fun parks, entertainment centers)
+- aquarium
+- zoo
+- shopping_mall (for malls, shopping centers)
+- restaurant
+- cafe
+- bar
+- beach
+- museum
+- hospital
+- pharmacy
+- taxi
+- airport
+- tourist_attraction (default for general tourist spots)
+- point_of_interest (default if none of the above match)
+
+Response:`;
+
+        try {
+            const model = this.genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+            const result = await model.generateContent(prompt);
+            const placeType = result.response.text().trim().toLowerCase();
+            console.log(`🎯 Gemini extracted search intent: ${placeType}`);
+            return placeType;
+        } catch (error) {
+            console.error('❌ Error extracting search intent:', error);
+            return 'point_of_interest';
+        }
+    }
+
+    getSearchTerm(query, category, language) {
+        const lowerQuery = query.toLowerCase();
+        
+        // First try to extract intent using keywords
+        for (const [key, translations] of Object.entries(this.keywords)) {
+            if (translations.some(k => lowerQuery.includes(k))) {
+                return this.placeTypes[key] || key;
+            }
+        }
+
+        // If no keyword match, use category-based defaults
+        switch (category) {
+            case 'ACİL_DURUM':
+                return 'hospital';  // default for emergency
+            case 'TURİSTİK':
+                return 'tourist_attraction';
+            case 'ULAŞIM':
+                return 'transit_station';
+            default:
+                return 'point_of_interest';
+        }
+    }
+
+    async generateLocationResponse(query, analysis, userLocation, hotelContext, language = 'tr') {
+        const placeService = require('./places');
+        
+        if (analysis.isHotelAmenity) {
+            // For hotel amenities, use the knowledge base
+            const firebaseService = require('./firebase');
+            const knowledge = await firebaseService.searchKnowledge(hotelContext, language);
+            
+            if (knowledge.success) {
+                const prompt = `You are a hotel assistant. Using ONLY the following hotel information, answer where the guest can find "${query}". If the information is not in the text, say you don't have that specific information.
+
+                Hotel Information:
+                ${knowledge.content}
+
+                Question: Where is ${query}?`;
+
+                const result = await this.generateResponse([], prompt, language);
+                return result;
+            }
+        }
+
+        // For external locations
+        const priorityConfig = {
+            'EMERGENCY': { radius: 5000, limit: 3 },
+            'TOURIST': { radius: 15000, limit: 5 },
+            'TRANSPORT': { radius: 10000, limit: 3 },
+            'OTHER': { radius: 10000, limit: 5 }
+        };
+
+        // First try keyword-based search
+        let searchTerm = this.getSearchTerm(query, analysis.category, language);
+        
+        // If no specific match found, use Gemini to extract intent
+        if (searchTerm === 'point_of_interest' || searchTerm === 'tourist_attraction') {
+            searchTerm = await this.extractSearchIntent(query, language);
+        }
+        
+        console.log(`🔍 Search term for "${query}" (${language}): ${searchTerm}`);
+
+        const config = priorityConfig[analysis.category] || priorityConfig.OTHER;
+        const hotelLocation = placeService.getHotelLocation(hotelContext);
+        
+        try {
+            const places = await placeService.searchNearbyPlaces(searchTerm, hotelLocation, config.radius, language);
+            console.log('📍 Found places:', places);
+            
+            // If no results found with specific type, fallback to tourist_attraction
+            if ((!places || places.length === 0) && searchTerm !== 'tourist_attraction') {
+                console.log('⚠️ No results found, falling back to tourist_attraction');
+                const fallbackPlaces = await placeService.searchNearbyPlaces('tourist_attraction', hotelLocation, config.radius, language);
+                if (fallbackPlaces && fallbackPlaces.length > 0) {
+                    places = fallbackPlaces;
+                }
+            }
+            
+            const formattedPlaces = placeService.formatPlacesForAI(places, hotelLocation, language);
+            console.log('📍 Formatted places:', formattedPlaces);
+
+            // Create the map data structure expected by the frontend
+            const mapData = {
+                list: formattedPlaces.list || [],
+                searchQuery: searchTerm,
+                searchLocation: {
+                    lat: hotelLocation.lat,
+                    lng: hotelLocation.lng,
+                    address: hotelLocation.address
+                }
+            };
+
+            return {
+                success: true,
+                response: formattedPlaces.text,
+                placesData: mapData
+            };
+        } catch (error) {
+            console.error('❌ Error getting places:', error);
+            const errorMessages = {
+                'tr': 'Üzgünüm, yakındaki yerleri ararken bir hata oluştu.',
+                'en': 'Sorry, an error occurred while searching for nearby places.',
+                'de': 'Entschuldigung, bei der Suche nach Orten in der Nähe ist ein Fehler aufgetreten.',
+                'ru': 'Извините, произошла ошибка при поиске мест поблизости.'
+            };
+            return {
+                success: true,
+                response: errorMessages[language] || errorMessages['en'],
+                placesData: null
+            };
+        }
+    }
+
+    // Replace old isLocationQueryAI with enhanced version
+    async isLocationQueryAI(message, history, language = 'tr') {
+        const analysis = await this.analyzeLocationQuery(message, history, language);
+        return !analysis.isHotelAmenity && analysis.confidence > 0.6;
+    }
+
+    async isHotelFacilityQuery(message, history, language = 'tr') {
+        const prompt = `You are helping to determine if a user's question is about hotel facilities or about external locations.
+
+Question: "${message}"
+
+Is this question asking about facilities, services, or locations WITHIN the hotel (like restaurants, pools, spa, etc.) rather than external places?
+
+Consider:
+1. If they mention "hotel", "restaurant", "facility", or similar words
+2. If they're asking about opening hours, locations, or services within the hotel
+3. Context from previous messages if any
+
+Please respond with just "true" if it's about hotel facilities, or "false" if it's about external locations.`;
+
+        try {
+            const response = await this.model.generateContent(prompt);
+            const result = response.response.text().toLowerCase().includes('true');
+            console.log(`🏨 Hotel facility check for "${message}" → ${result}`);
+            return result;
+        } catch (error) {
+            console.error('❌ Hotel facility check error:', error);
+            return false;
         }
     }
 }

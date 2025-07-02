@@ -5,16 +5,38 @@ html, body, #root {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-color: #fff; /* Ensure a white background globally */
 }
 
 .App {
   display: flex;
   flex-direction: column;
-  height: 100vh; /* Fallback for older browsers */
-  height: 100dvh; /* Use dynamic viewport height for mobile */
-  background-color: #f5f5f5;
+  height: 100vh;
+  height: 100dvh; 
+  background-color: #fff;
 }
 
+.app-container {
+    height: 100%;
+}
+
+/* We remove the .admin-view specific padding and background */
+
+.chat-container {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+/* ... keep the rest of your original CSS ... */
+
+/* The rest of the file from your original App.css can be pasted here,
+   but make sure the .app-container.admin-view is removed.
+   For simplicity, I am only providing the critical fix.
+   The key is removing the padding and background from the admin view.
+*/
+
+/* I will include the rest of the file for completeness. */
 .navigation {
   flex-shrink: 0; /* Prevent the nav from shrinking */
   background: #ffffff;
@@ -1341,16 +1363,4 @@ html, body, #root {
     position: relative !important;
     z-index: 1001 !important;
   }
-}
-
-.app-container.admin-view {
-  max-width: 95%;
-  padding: 2rem;
-  margin: 2rem auto;
-}
-
-.chat-container {
-  max-width: 768px; /* Max width for the chat interface on larger screens */
-  margin: 0 auto;  /* Center the chat interface */
-  height: 100%;
 } 

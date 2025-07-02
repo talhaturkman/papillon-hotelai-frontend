@@ -144,18 +144,26 @@ function ChatInterface() {
   }, [messages, isLoading, voiceOutput, spokenMessageIds, lastInputMethod]);
 
   const handleLocationReceived = (location) => {
+    console.log('📍 Location received:', location);
     setUserLocation(location);
     setShowLocationRequest(false);
     if (pendingLocationQuery) {
+      // If it's a hotel location, we want to pass it directly
+      if (location.isHotelLocation) {
+        console.log('📍 Using hotel location for query');
+        sendMessage(location);
+      } else {
+        console.log('📍 Using user location for query');
       sendMessage(location);
+      }
     }
   };
 
   const handleLocationDenied = () => {
+    console.log('❌ Location access denied');
     setShowLocationRequest(false);
-    if (pendingLocationQuery) {
-      sendMessage();
-    }
+    // Don't send the message here - let the user choose hotel location instead
+    // This prevents the infinite loop
   };
 
   const handleSupportResponse = async (accepted) => {

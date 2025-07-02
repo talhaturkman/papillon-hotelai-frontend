@@ -43,9 +43,6 @@ router.post('/', async (req, res) => {
             return res.status(400).json({ error: 'Message is required' });
         }
 
-        // The AI is now responsible for identifying support requests via a special tag.
-        // Our logic is much simpler: just call the AI and check its response.
-
         // 1. Detect conversation context (hotel, language)
         const hotel = await geminiService.detectHotelWithAI(message, history);
         const detectedLanguage = await geminiService.detectLanguage(message, history);
@@ -53,60 +50,98 @@ router.post('/', async (req, res) => {
         // Add user's message to history for this turn
         const chatHistory = [...history, { role: 'user', content: message }];
 
-        // Asynchronously log the question for analytics without waiting for it to complete
-        firebaseService.logQuestionForAnalysis({
+        // Log the question for analytics
+        await firebaseService.logQuestionForAnalysis({
             message,
-            detectedHotel: hotel,
-            detectedLanguage,
-            sessionId: session_id
+            session_id,
+            hotel,
+            language: detectedLanguage,
+            userLocation: userLocation ? {
+                lat: userLocation.lat,
+                lng: userLocation.lng
+            } : null
         });
 
-        // NEW: Check if this is a location-based query FIRST
-        const isLocation = await placesService.isLocationQueryEnhanced(message, history, detectedLanguage);
+        // 2. Check if it's a location query
+        const locationAnalysis = await geminiService.analyzeLocationQuery(message, history, detectedLanguage);
+        console.log('🔍 Location analysis:', locationAnalysis);
 
-        let knowledgeContext = null;
-        let aiResult;
-
-        if (isLocation) {
-            console.log('📍 This is a location query. Using PlacesService...');
-            aiResult = await placesService.handleLocationQuery(message, hotel, detectedLanguage, userLocation);
-        } else {
-            console.log('📚 This is a knowledge query. Using FirebaseService...');
-            if (hotel) {
-                const knowledgeResult = await firebaseService.searchKnowledge(hotel, detectedLanguage);
-                if (knowledgeResult.success && knowledgeResult.content) {
-                    knowledgeContext = knowledgeResult.content;
-                    console.log(`🧠 Knowledge context loaded for ${hotel}/${detectedLanguage}`);
-                }
+        let response;
+        if (!locationAnalysis.isHotelAmenity && locationAnalysis.confidence > 0.6) {
+            console.log('📍 External location query detected. Using enhanced location handling...');
+            
+            if (!userLocation || !userLocation.lat || !userLocation.lng) {
+                return res.json({
+                    success: true,
+                    response: 'Konumunuzu bulmam için izin vermeniz gerekiyor. İzni verdikten sonra tekrar deneyebilirsiniz.',
+                    requiresLocation: true
+                });
             }
-            // Generate AI response using knowledge context
-            aiResult = await geminiService.generateResponse(chatHistory, knowledgeContext, detectedLanguage, userLocation);
+
+            response = await geminiService.generateLocationResponse(
+                message,
+                locationAnalysis,
+                userLocation,
+                hotel,
+                detectedLanguage
+            );
+
+            // Ensure placesData has the correct structure
+            const sanitizedPlacesData = response.placesData ? {
+                list: Array.isArray(response.placesData.list) ? response.placesData.list.map(place => ({
+                    name: place.name || '',
+                    distance: place.distance || 0,
+                    lat: place.lat || 0,
+                    lng: place.lng || 0,
+                    rating: place.rating || 0,
+                    vicinity: place.vicinity || '',
+                    address: place.address || ''
+                })) : [],
+                searchQuery: response.placesData.searchQuery || '',
+                searchLocation: {
+                    lat: response.placesData.searchLocation?.lat || userLocation.lat,
+                    lng: response.placesData.searchLocation?.lng || userLocation.lng,
+                    address: response.placesData.searchLocation?.address || ''
+                }
+            } : null;
+
+            // Log the response for analytics
+            await firebaseService.logQuestionForAnalysis({
+                message: response.response,
+                session_id,
+                hotel,
+                language: detectedLanguage,
+                isLocationResponse: true,
+                locationData: sanitizedPlacesData?.list || []
+            });
+
+            return res.json({
+                success: true,
+                response: response.response,
+                placesData: sanitizedPlacesData
+            });
         }
 
-        if (!aiResult.success) {
-            return res.status(500).json({ success: false, error: 'AI service failed' });
-        }
-        
-        // 3. Final Step: Force translation to the user's language
-        const finalResponse = await translationService.translateText(aiResult.response, detectedLanguage);
+        // 3. For non-location queries, use standard response generation
+        const knowledge = await firebaseService.searchKnowledge(hotel, detectedLanguage);
+        response = await geminiService.generateResponse(
+            chatHistory,
+            knowledge.content,
+            detectedLanguage,
+            userLocation
+        );
 
-        const responsePayload = {
+        return res.json({
             success: true,
-            response: finalResponse,
-            sessionId: session_id,
-            placesData: aiResult.placesData,
-            offerSupport: finalResponse.includes('[DESTEK_TALEBI]')
-        };
-        
-        // 4. Add the final assistant message to history for storage
-        const finalHistory = [...chatHistory, { role: 'assistant', content: finalResponse }];
-        await firebaseService.storeChatConversation(session_id, finalHistory);
-        
-        res.json(responsePayload);
+            response: response.response
+        });
 
     } catch (error) {
         console.error('❌ Chat endpoint error:', error);
-        res.status(500).json({ error: 'Internal Server Error' });
+        return res.status(500).json({
+            success: false,
+            error: 'An error occurred while processing your request.'
+        });
     }
 });
 

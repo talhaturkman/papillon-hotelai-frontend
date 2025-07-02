@@ -3,10 +3,33 @@ import React, { useState } from 'react';
 function LocationPermission({ onLocationReceived, onLocationDenied }) {
     const [isRequesting, setIsRequesting] = useState(false);
     const [error, setError] = useState('');
+    const [showHotelSelect, setShowHotelSelect] = useState(false);
+
+    const hotelLocations = {
+        'belvil': {
+            name: 'Papillon Belvil',
+            lat: 36.8626,
+            lng: 31.0503,
+            isHotelLocation: true
+        },
+        'zeugma': {
+            name: 'Papillon Zeugma',
+            lat: 36.8626,
+            lng: 31.0503,
+            isHotelLocation: true
+        },
+        'ayscha': {
+            name: 'Papillon Ayscha',
+            lat: 36.4389,
+            lng: 30.5961,
+            isHotelLocation: true
+        }
+    };
 
     const requestLocation = () => {
         setIsRequesting(true);
         setError('');
+        setShowHotelSelect(false);
 
         console.log('🔍 Checking geolocation support and security context...');
         console.log('📍 HTTPS:', window.location.protocol === 'https:');
@@ -74,11 +97,18 @@ function LocationPermission({ onLocationReceived, onLocationDenied }) {
                 onLocationDenied(errorMessage);
             },
             {
-                enableHighAccuracy: false, // Set to false for faster response
-                timeout: 15000, // Increase timeout
-                maximumAge: 600000 // 10 minutes cache
+                enableHighAccuracy: false,
+                timeout: 15000,
+                maximumAge: 600000
             }
         );
+    };
+
+    const handleHotelSelect = (hotelKey) => {
+        const selectedHotel = hotelLocations[hotelKey];
+        console.log('📍 Using selected hotel location:', selectedHotel);
+        setShowHotelSelect(false);
+        onLocationReceived(selectedHotel);
     };
 
     return (
@@ -93,7 +123,7 @@ function LocationPermission({ onLocationReceived, onLocationDenied }) {
             <div style={{
                 fontSize: '2rem',
                 marginBottom: '0.5rem'
-            }}            >
+            }}>
                 📍
             </div>
             
@@ -126,46 +156,93 @@ function LocationPermission({ onLocationReceived, onLocationDenied }) {
                     {error}
                 </div>
             )}
-            
-            <button
-                onClick={requestLocation}
-                disabled={isRequesting}
-                style={{
-                    padding: '0.8rem 1.5rem',
-                    borderRadius: '8px',
-                    border: 'none',
-                    backgroundColor: isRequesting ? '#ccc' : '#4285f4',
-                    color: 'white',
-                    fontSize: '0.9rem',
-                    fontWeight: '600',
-                    cursor: isRequesting ? 'not-allowed' : 'pointer',
-                    transition: 'background-color 0.2s',
-                    marginRight: '0.5rem'
-                }}
-            >
-                {isRequesting ? 'Konum Alınıyor...' : 'Konumumu Paylaş'}
-            </button>
-            
-            <button
-                onClick={() => {
-                    console.log('📍 Using hotel location as fallback');
-                    onLocationDenied('Manuel olarak otel konumu seçildi');
-                }}
-                disabled={isRequesting}
-                style={{
-                    padding: '0.8rem 1.5rem',
-                    borderRadius: '8px',
-                    border: '1px solid #ddd',
-                    backgroundColor: '#f8f9fa',
-                    color: '#666',
-                    fontSize: '0.9rem',
-                    fontWeight: '600',
-                    cursor: 'pointer',
-                    transition: 'background-color 0.2s'
-                }}
-            >
-                Otel Konumunu Kullan
-            </button>
+
+            {!showHotelSelect ? (
+                <>
+                    <button
+                        onClick={requestLocation}
+                        disabled={isRequesting}
+                        style={{
+                            padding: '0.8rem 1.5rem',
+                            borderRadius: '8px',
+                            border: 'none',
+                            backgroundColor: isRequesting ? '#ccc' : '#4285f4',
+                            color: 'white',
+                            fontSize: '0.9rem',
+                            fontWeight: '600',
+                            cursor: isRequesting ? 'not-allowed' : 'pointer',
+                            transition: 'background-color 0.2s',
+                            marginRight: '0.5rem'
+                        }}
+                    >
+                        {isRequesting ? 'Konum Alınıyor...' : 'Konumumu Paylaş'}
+                    </button>
+                    
+                    <button
+                        onClick={() => setShowHotelSelect(true)}
+                        disabled={isRequesting}
+                        style={{
+                            padding: '0.8rem 1.5rem',
+                            borderRadius: '8px',
+                            border: '1px solid #ddd',
+                            backgroundColor: '#f8f9fa',
+                            color: '#666',
+                            fontSize: '0.9rem',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            transition: 'background-color 0.2s'
+                        }}
+                    >
+                        Otel Konumunu Kullan
+                    </button>
+                </>
+            ) : (
+                <div style={{ marginTop: '1rem' }}>
+                    <p style={{
+                        margin: '0 0 1rem 0',
+                        fontSize: '0.9rem',
+                        color: '#666'
+                    }}>
+                        Lütfen kaldığınız oteli seçin:
+                    </p>
+                    {Object.entries(hotelLocations).map(([key, hotel]) => (
+                        <button
+                            key={key}
+                            onClick={() => handleHotelSelect(key)}
+                            style={{
+                                padding: '0.8rem 1.5rem',
+                                margin: '0.25rem',
+                                borderRadius: '8px',
+                                border: '1px solid #ddd',
+                                backgroundColor: '#fff',
+                                color: '#2c3e50',
+                                fontSize: '0.9rem',
+                                fontWeight: '600',
+                                cursor: 'pointer',
+                                transition: 'background-color 0.2s',
+                                display: 'block',
+                                width: '100%'
+                            }}
+                        >
+                            {hotel.name}
+                        </button>
+                    ))}
+                    <button
+                        onClick={() => setShowHotelSelect(false)}
+                        style={{
+                            padding: '0.5rem',
+                            marginTop: '0.5rem',
+                            border: 'none',
+                            backgroundColor: 'transparent',
+                            color: '#666',
+                            fontSize: '0.8rem',
+                            cursor: 'pointer'
+                        }}
+                    >
+                        ← Geri
+                    </button>
+                </div>
+            )}
         </div>
     );
 }
