@@ -61,6 +61,27 @@ class GeminiService {
     }
 
     async generateResponse(history, context, language = 'tr', userLocation = null, overrideSystemPrompt = null, generationConfig = null) {
+        return this._generateResponseWithHistory(history, context, language, userLocation, overrideSystemPrompt, generationConfig);
+    }
+
+    async generateSingleResponse(prompt, language = 'tr', generationConfig = null) {
+        this.initialize();
+        if (!this.genAI) {
+            return { success: false, response: 'AI service not initialized' };
+        }
+
+        try {
+            const model = this.genAI.getGenerativeModel({ model: this.model });
+            const result = await model.generateContent(prompt);
+            const responseText = result.response.text();
+            return { success: true, response: responseText };
+        } catch (error) {
+            console.error('❌ Gemini API Error:', error.message);
+            return { success: false, error: 'AI service temporarily unavailable. Please try again in a moment.' };
+        }
+    }
+
+    async _generateResponseWithHistory(history, context, language = 'tr', userLocation = null, overrideSystemPrompt = null, generationConfig = null) {
         this.initialize();
         if (!this.genAI) {
             return { success: false, response: 'AI service not initialized' };
@@ -116,9 +137,15 @@ ${context}
                 parts: [{ text: h.content }]
             }));
 
-            const lastMessage = chatHistoryForAPI.pop();
-            if (!lastMessage || lastMessage.role !== 'user') {
-                throw new Error("Invalid history: Last message must be from the user.");
+            let lastMessage;
+            if (chatHistoryForAPI.length > 0) {
+                lastMessage = chatHistoryForAPI.pop();
+                if (!lastMessage || lastMessage.role !== 'user') {
+                    throw new Error("Invalid history: Last message must be from the user.");
+                }
+            } else {
+                // Eğer history boşsa, bu bir tek mesajlık istek demektir
+                throw new Error("No user message found in history.");
             }
 
             const chat = model.startChat({
@@ -157,7 +184,41 @@ ${context}
 
         } catch (error) {
             console.error('❌ Gemini API Error:', error.message);
-            return { success: false, error: 'AI service temporarily unavailable.' };
+            
+            // Retry logic for transient errors
+            if (error.message.includes('500 Internal Server Error') || 
+                error.message.includes('429') || 
+                error.message.includes('quota') ||
+                error.message.includes('rate limit')) {
+                
+                console.log('🔄 Retrying Gemini API call due to transient error...');
+                try {
+                    // Wait 2 seconds before retry
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    
+                    const chat = model.startChat({
+                        history: chatHistoryForAPI,
+                        generationConfig: generationConfig || {
+                            temperature: 0.7,
+                            maxOutputTokens: 1000,
+                        },
+                        systemInstruction: {
+                            parts: [{ text: overrideSystemPrompt || getSystemPrompt(language, context) }]
+                        },
+                    });
+                    
+                    const result = await chat.sendMessage(lastMessage.parts[0].text);
+                    const responseText = result.response.text();
+                    
+                    console.log('✅ Gemini API retry successful');
+                    return { success: true, response: responseText, placesData: null };
+                    
+                } catch (retryError) {
+                    console.error('❌ Gemini API retry failed:', retryError.message);
+                }
+            }
+            
+            return { success: false, error: 'AI service temporarily unavailable. Please try again in a moment.' };
         }
     }
 
@@ -204,9 +265,11 @@ ${context}
             const historyText = history.map(m => `${m.role}: ${m.content}`).join('\n');
             const prompt = `Analyze the following conversation and identify which of the three Papillon hotels is being discussed: "Belvil", "Zeugma", or "Ayscha". Respond with only the hotel name. If no specific hotel is mentioned, respond with "None".\n\nConversation:\n${historyText}\nuser: ${message}\n\nHotel:`;
             
-            const model = this.genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
-            const result = await model.generateContent(prompt);
-            const hotel = result.response.text().trim().replace(/"/g, '');
+            const result = await this.generateSingleResponse(prompt, 'en');
+            if (!result.success) {
+                throw new Error('Failed to detect hotel');
+            }
+            const hotel = result.response.trim().replace(/"/g, '');
 
             if (['Belvil', 'Zeugma', 'Ayscha'].includes(hotel)) {
                 console.log(`✅ Gemini detected hotel: ${hotel}`);
@@ -228,6 +291,10 @@ ${context}
     }
 
     async analyzeLocationQuery(message, history, language = 'tr') {
+        // Parametreleri güvenli hale getir
+        const safeMessage = typeof message === 'string' ? message : '';
+        const safeLanguage = typeof language === 'string' ? language : 'tr';
+
         const systemPrompts = {
             'tr': `Sen bir otel asistanısın ve konum sorularını analiz ediyorsun. Soruyu analiz et ve şu kategorilerden birine yerleştir:
 
@@ -237,7 +304,7 @@ ${context}
             4. ULAŞIM: Ulaşım noktaları (havaalanı, taksi durağı, otobüs durağı vs.)
             5. DİĞER: Diğer dış mekan soruları
 
-            Soru: "${message}"
+            Soru: "${safeMessage}"
 
             SADECE aşağıdaki JSON formatında yanıt ver (başka hiçbir metin ekleme):
             {
@@ -254,7 +321,7 @@ ${context}
             4. TRANSPORT: Transportation points (airport, taxi stand, bus stop etc.)
             5. OTHER: Other external location questions
 
-            Question: "${message}"
+            Question: "${safeMessage}"
 
             Respond ONLY with the following JSON format (do not add any other text):
             {
@@ -264,14 +331,18 @@ ${context}
             }`
         };
 
-        const prompt = systemPrompts[language] || systemPrompts['en'];
+        const prompt = systemPrompts[safeLanguage] || systemPrompts['en'];
         const strictConfig = {
             temperature: 0,
             maxOutputTokens: 100,
         };
 
         try {
-            const result = await this.generateResponse(history, null, language, null, prompt, strictConfig);
+            // Tek mesaj için generateSingleResponse kullan
+            const result = await this.generateSingleResponse(prompt, safeLanguage, strictConfig);
+            if (!result.success || !result.response) {
+                throw new Error('Failed to get response from Gemini');
+            }
             let jsonStr = result.response.trim();
             
             // Clean up any potential markdown formatting
@@ -283,7 +354,7 @@ ${context}
             
             const analysis = JSON.parse(jsonStr.trim());
             
-            console.log(`[Location Analysis] Query: "${message}" → Category: ${analysis.category}, Confidence: ${analysis.confidence}, Is Hotel Amenity: ${analysis.isHotelAmenity}`);
+            console.log(`[Location Analysis] Query: "${safeMessage}" → Category: ${analysis.category}, Confidence: ${analysis.confidence}, Is Hotel Amenity: ${analysis.isHotelAmenity}`);
             
             return analysis;
         } catch (error) {
@@ -320,9 +391,11 @@ Return ONLY ONE of these exact place types that best matches the query intent:
 Response:`;
 
         try {
-            const model = this.genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
-            const result = await model.generateContent(prompt);
-            const placeType = result.response.text().trim().toLowerCase();
+            const result = await this.generateSingleResponse(prompt, 'en');
+            if (!result.success) {
+                throw new Error('Failed to extract search intent');
+            }
+            const placeType = result.response.trim().toLowerCase();
             console.log(`🎯 Gemini extracted search intent: ${placeType}`);
             return placeType;
         } catch (error) {

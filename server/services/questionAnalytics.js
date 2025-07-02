@@ -1,19 +1,72 @@
 const geminiService = require('./gemini');
 const firebaseService = require('./firebase');
+const translationService = require('./translation');
+const natural = require('natural');
+const tokenizer = new natural.WordTokenizer();
 
 let questionCache = null;
 let lastCacheTime = null;
-const cacheValidityPeriod = 5 * 60 * 1000; // 5 minutes
+const cacheValidityPeriod = 2 * 60 * 1000; // 2 minutes - daha hızlı güncelleme için
 
-async function isQuestion(text) {
+// Cache invalidation için event emitter
+const EventEmitter = require('events');
+const analyticsEvents = new EventEmitter();
+
+// Top Questions için gerçek zamanlı cache
+let topQuestionsCache = [];
+let topQuestionsLastUpdate = null;
+
+// Yeni soru geldiğinde cache'i temizle
+function invalidateCacheOnNewQuestion() {
+    console.log('🔄 Cache invalidated due to new question');
+    questionCache = null;
+    lastCacheTime = null;
+    // Event emit et
+    analyticsEvents.emit('cacheInvalidated');
+}
+
+// Cache durumunu kontrol et
+function shouldInvalidateCache() {
+    // Cache yoksa veya süresi geçmişse
+    if (!questionCache || (Date.now() - lastCacheTime) >= cacheValidityPeriod) {
+        return true;
+    }
+    
+    // Yeni soru geldiğinde cache'i temizle
+    return false;
+}
+
+async function isQuestion(text, language) {
     if (!text) {
         console.log('❌ Empty text');
         return false;
     }
 
+    let textForGemini = text;
+    let detectedLang = language;
+
+    // Detect language if not provided
+    if (!detectedLang) {
+        const detection = await translationService.detectLanguage(text);
+        detectedLang = detection.language;
+        console.log(`[isQuestion] Detected language: ${detectedLang}`);
+    }
+
+    console.log(`[isQuestion] Original: "${text}"`);
+    // Translate if not English
+    if (detectedLang !== 'en') {
+        try {
+            const translation = await translationService.translateText(text, 'en');
+            textForGemini = translation;
+            console.log(`[isQuestion] Translated to English: "${textForGemini}"`);
+        } catch (err) {
+            console.error('❌ Translation failed:', err);
+        }
+    }
+
     // First, check if it's just a hotel name
     const hotelNames = ['belvil', 'zeugma', 'ayscha'];
-    const textLower = text.toLowerCase().trim();
+    const textLower = textForGemini.toLowerCase().trim();
     
     // If it's just a hotel name or hotel name + "otelde", it's not a question
     if (hotelNames.some(hotel => 
@@ -22,13 +75,14 @@ async function isQuestion(text) {
         textLower === `${hotel} otel` ||
         textLower === `${hotel} hotel`
     )) {
-        console.log(`❌ Skipping hotel name: "${text}"`);
+        console.log(`❌ Skipping hotel name: "${textForGemini}"`);
         return false;
     }
 
+    // Gemini prompt
     const prompt = `Analyze if this text is a genuine question or inquiry that needs a response. Consider the context and intent carefully.
 
-Text: "${text}"
+Text: "${textForGemini}"
 
 Rules:
 1. Return "true" ONLY if the text is a genuine question or inquiry that needs a response
@@ -45,17 +99,19 @@ Rules:
 Important: Return ONLY "true" or "false", no other text or formatting.`;
 
     try {
-        const result = await geminiService.generateResponse([{ role: 'user', content: prompt }], '', 'en');
+        console.log(`[isQuestion] Text sent to Gemini: "${textForGemini}"`);
+        // Tek mesaj için özel fonksiyon kullan
+        const result = await geminiService.generateSingleResponse(prompt, 'en');
+        console.log(`[isQuestion] Gemini raw response:`, result.response);
         if (!result.success) throw new Error(result.error || 'Failed to get AI response');
-        
         const cleanResponse = result.response.trim().toLowerCase();
-        const isQuestion = cleanResponse === 'true';
-        console.log(`🤖 AI Question Detection for "${text}": ${isQuestion}`);
+        const isQuestion = cleanResponse.includes('true') || cleanResponse.includes('yes') || cleanResponse.includes('question');
+        console.log(`[isQuestion] Final decision for "${textForGemini}": ${isQuestion}`);
         return isQuestion;
     } catch (error) {
         console.error('❌ AI Question Detection failed:', error);
         // Enhanced fallback detection
-        const text_lower = text.toLowerCase().trim();
+        const text_lower = textForGemini.toLowerCase().trim();
         
         // Filter out common non-questions
         const greetings = ['merhaba', 'hello', 'hi', 'hallo', 'привет', 'selam'];
@@ -79,7 +135,7 @@ Important: Return ONLY "true" or "false", no other text or formatting.`;
         }
         
         // Check for question indicators
-        const hasQuestionMark = text.includes('?');
+        const hasQuestionMark = textForGemini.includes('?');
         const hasQuestionWord = text_lower.includes('mi') || 
                               text_lower.includes('mu') || 
                               text_lower.includes('mı') || 
@@ -108,7 +164,8 @@ Return a JSON object with these properties:
 Important: Return ONLY the JSON object, no markdown formatting or code blocks. Do not use 'facility' for hotel names (Belvil, Zeugma, Ayscha).`;
 
     try {
-        const result = await geminiService.generateResponse([{ role: 'user', content: prompt }], '', 'en');
+        // Tek mesaj için özel fonksiyon kullan
+        const result = await geminiService.generateSingleResponse(prompt, 'en');
         if (!result.success) throw new Error(result.error || 'Failed to get AI response');
         
         // Clean the response of any markdown formatting
@@ -159,9 +216,15 @@ async function analyzeQuestions(forceRefresh = false) {
             }
         }
 
+        // Cache invalidation kontrolü
+        if (shouldInvalidateCache()) {
+            console.log('🔄 Cache invalidated, generating fresh analytics...');
+            forceRefresh = true;
+        }
+
         console.log('🔄 Generating fresh analytics...');
 
-        // Get all questions from Firebase
+        // Get all questions from Firebase - SADECE GERÇEK SORULAR
         let loggedQuestions;
         try {
             loggedQuestions = await firebaseService.getAllQuestions(2000);
@@ -173,50 +236,25 @@ async function analyzeQuestions(forceRefresh = false) {
         
         if (!loggedQuestions || !Array.isArray(loggedQuestions)) {
             console.error('❌ Invalid questions data:', loggedQuestions);
-            return { success: false, error: 'Invalid questions data' };
+            throw new Error('Invalid questions data from Firebase');
         }
 
-        if (!loggedQuestions.length) {
+        // SADECE GERÇEK SORULARI FİLTRELE (isQuestion: true)
+        const realQuestions = loggedQuestions.filter(q => q.isQuestion === true);
+        console.log(`✅ Filtered ${realQuestions.length} real questions out of ${loggedQuestions.length} total`);
+
+        if (realQuestions.length === 0) {
+            console.log('📭 No real questions found, returning empty result');
             return { success: true, questions: [], lastUpdated: new Date().toISOString() };
         }
 
-        // Group questions by session to maintain context
-        const questionsBySession = {};
-        loggedQuestions.forEach(q => {
-            if (!q) return; // Skip null/undefined questions
-            const sessionId = q.sessionId || 'default';
-            if (!questionsBySession[sessionId]) {
-                questionsBySession[sessionId] = [];
-            }
-            questionsBySession[sessionId].push(q);
-        });
-
-        // Process questions session by session
+        // Process questions - artık sadece gerçek soruları işle
         const processedQuestions = [];
-        for (const sessionQuestions of Object.values(questionsBySession)) {
-            // Sort by timestamp
-            sessionQuestions.sort((a, b) => {
-                const aTime = a.timestamp || a.createdAt || new Date(0);
-                const bTime = b.timestamp || b.createdAt || new Date(0);
-                return new Date(aTime) - new Date(bTime);
-            });
-            
-            // Track hotel context for the session
-            let sessionHotel = null;
-            for (const q of sessionQuestions) {
-                if (!q || !q.message) {
-                    console.log('⚠️ Skipping invalid question:', q);
-                    continue;
-                }
-
-                // Update session hotel if detected
-                if (q.detectedHotel) {
-                    sessionHotel = q.detectedHotel;
-                }
-
-                // Skip non-questions based on pre-processed flag
-                if (q.preprocessed && !q.isQuestion) {
-                    console.log('⚠️ Skipping non-question:', q.message);
+        for (const q of realQuestions) {
+            try {
+                // Skip invalid questions
+                if (!q.message || !q.message.trim()) {
+                    console.log('⚠️ Skipping empty question');
                     continue;
                 }
 
@@ -224,42 +262,44 @@ async function analyzeQuestions(forceRefresh = false) {
                 const questionData = {
                     ...q,
                     message: q.message || q.text || '', // Ensure message exists
-                    detectedHotel: q.detectedHotel || sessionHotel,
+                    detectedHotel: q.detectedHotel || q.hotel || 'Unknown',
                     language: q.detectedLanguage || q.language || 'unknown',
-                    timestamp: q.createdAt || q.timestamp || new Date().toISOString()
+                    timestamp: q.createdAt || q.timestamp || new Date().toISOString(),
+                    category: q.category || 'general',
+                    facility: q.facility || null
                 };
 
-                if (!q.preprocessed) {
+                // Eğer categorization yoksa, şimdi yap
+                if (!q.categorization && q.preprocessed) {
                     try {
-                        // Only for old questions that weren't pre-processed
-                        const isQuestion = await isQuestion(questionData.message);
-                        if (!isQuestion) {
-                            console.log('⚠️ Skipping non-question after AI check:', questionData.message);
-                            continue;
-                        }
-                        
-                        const categorization = await categorizeQuestion(questionData.message);
+                        console.log(`🔄 Re-categorizing question: "${q.message}"`);
+                        const categorization = await categorizeQuestion(q.message);
                         questionData.categorization = categorization;
                         questionData.category = categorization.category;
                         questionData.facility = categorization.facility;
                         
                         // Update the question in Firebase with categorization
                         await firebaseService.updateQuestionAnalytics(q.id, {
-                            isQuestion: true,
                             categorization,
-                            preprocessed: true
+                            category: categorization.category,
+                            facility: categorization.facility
                         });
                     } catch (error) {
-                        console.error('❌ Error processing question:', error);
-                        continue;
+                        console.error('❌ Error re-categorizing question:', error);
+                        // Varsayılan değerlerle devam et
                     }
+                } else if (q.categorization) {
+                    questionData.categorization = q.categorization;
                 }
 
                 processedQuestions.push(questionData);
+            } catch (error) {
+                console.error('❌ Error processing question:', error);
+                continue;
             }
         }
 
-        console.log(`✅ Processed ${processedQuestions.length} valid questions`);
+        console.log(`✅ Processed ${processedQuestions.length} valid real questions`);
         if (processedQuestions.length === 0) {
             return { success: true, questions: [], lastUpdated: new Date().toISOString() };
         }
@@ -290,150 +330,106 @@ async function analyzeQuestions(forceRefresh = false) {
     }
 }
 
+// NLP tabanlı ön gruplama fonksiyonu
+function nlpPreClusterQuestions(questions, similarityThreshold = 0.8) {
+    // Küçük harfe çevir, noktalama temizle, tokenize et
+    const clean = (text) => tokenizer.tokenize(
+        (text || '').toLowerCase().replace(/[.,!?;:()\[\]{}"'`]/g, '')
+    ).join(' ');
+
+    // Her sorunun temizlenmiş halini ve orijinalini tut
+    const processed = questions.map(q => ({
+        ...q,
+        _clean: clean(q.message || q.text || '')
+    }));
+
+    const groups = [];
+    processed.forEach((q, idx) => {
+        let found = false;
+        for (const group of groups) {
+            // Cosine similarity ile benzerlik kontrolü
+            const sim = natural.JaroWinklerDistance(q._clean, group[0]._clean);
+            if (sim >= similarityThreshold) {
+                group.push(q);
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            groups.push([q]);
+        }
+    });
+    // Grupları orijinal formatta döndür
+    return groups.map(g => g.map(q => {
+        const { _clean, ...rest } = q;
+        return rest;
+    }));
+}
+
 async function groupSimilarQuestions(questions) {
     console.log('🔍 Starting groupSimilarQuestions with', questions.length, 'questions');
-    console.log('📝 Sample question:', JSON.stringify(questions[0], null, 2));
-    
-    if (!questions.length) return [];
-
-    // First, normalize and deduplicate questions
-    const uniqueQuestions = questions.reduce((acc, curr, index) => {
-        // Debug logging for the first few items
-        if (index < 3) {
-            console.log(`📌 Processing question ${index}:`, JSON.stringify(curr, null, 2));
-        }
-
-        // Skip invalid questions
-        if (!curr) {
-            console.log('⚠️ Skipping undefined question');
-            return acc;
-        }
-
-        const text = curr.message || curr.text || ''; // Handle both message and text fields
-        if (!text.trim()) {
-            console.log('⚠️ Skipping empty message');
-            return acc;
-        }
-        
-        const key = `${text.toLowerCase()}_${curr.hotel || 'Unknown'}_${curr.language || 'unknown'}`;
-        
-        if (!acc[key]) {
-            acc[key] = {
-                ...curr,
-                text: text, // Ensure text field exists
-                count: 1,
-                originalText: text, // Keep original text for display
-                language: curr.language || 'unknown',
-                category: curr.category || 'general',
-                facility: curr.facility || null,
-                timestamp: curr.timestamp || new Date().toISOString()
-            };
-        } else {
-            acc[key].count++;
-            // Update timestamp if newer
-            const timestamp = curr.timestamp || new Date().toISOString();
-            if (timestamp > acc[key].timestamp) {
-                acc[key].timestamp = timestamp;
-                acc[key].originalText = text;
+    // NLP ile ön gruplama
+    const nlpGroups = nlpPreClusterQuestions(questions, 0.85);
+    console.log('🧠 NLP ön gruplama sonucu:', nlpGroups.length, 'grup');
+    let allGroups = [];
+    for (let i = 0; i < nlpGroups.length; i++) {
+        const group = nlpGroups[i];
+        if (group.length === 0) continue;
+        // Normalizasyon ve deduplikasyon
+        const uniqueQuestions = group.reduce((acc, curr) => {
+            const text = curr.message || curr.text || '';
+            if (!text.trim()) return acc;
+            const key = `${text.toLowerCase()}_${curr.hotel || 'Unknown'}_${curr.language || 'unknown'}`;
+            if (!acc[key]) {
+                acc[key] = {
+                    ...curr,
+                    text: text,
+                    count: 1,
+                    originalText: text,
+                    language: curr.language || 'unknown',
+                    category: curr.category || 'general',
+                    facility: curr.facility || null,
+                    timestamp: curr.timestamp || new Date().toISOString()
+                };
+            } else {
+                acc[key].count++;
+                const timestamp = curr.timestamp || new Date().toISOString();
+                if (timestamp > acc[key].timestamp) {
+                    acc[key].timestamp = timestamp;
+                    acc[key].originalText = text;
+                }
             }
-        }
-        return acc;
-    }, {});
-
-    // Convert back to array
-    const normalizedQuestions = Object.values(uniqueQuestions);
-    console.log('✅ Normalized', normalizedQuestions.length, 'unique questions');
-    console.log('📝 Sample normalized question:', JSON.stringify(normalizedQuestions[0], null, 2));
-    
-    // Sort by timestamp to prioritize newer questions
-    normalizedQuestions.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-
-    const prompt = `Analyze these questions and group them by similar intent/meaning. Each question should only be counted once in its exact form.
-
-Questions to analyze:
-${normalizedQuestions.map(q => `- Text: "${q.originalText}", Count: ${q.count}, Language: ${q.language || 'unknown'}, Hotel: ${q.hotel || 'Unknown'}, Category: ${q.category || 'general'}, Facility: ${q.facility || 'none'}`).join('\n')}
-
-Rules for grouping:
-1. Each unique question text should only be counted ONCE
-2. Questions with the same meaning in different languages should be grouped together
-3. Similar complaints/questions about different hotels should be separate groups
-4. Keep exact counts - do not inflate numbers
-5. Use the most recent question as the representative question
-6. Maintain original language and hotel information
-
-Return a JSON array where each group has:
-- question: The representative question text (most recent version)
-- count: EXACT number of times this question type was asked
-- category: The most appropriate category
-- facility: Specific facility if relevant
-- hotels: Array of mentioned hotels (only valid hotels: "Belvil", "Zeugma", "Ayscha")
-- languages: Array of languages used
-- percentage: Percentage of total questions (rounded to nearest whole number)
-
-Important: Return ONLY the JSON array, no other text. Ensure counts are exact and not inflated.`;
-
-    try {
-        console.log('🤖 Sending prompt to Gemini...');
-        const result = await geminiService.generateResponse([{ role: 'user', content: prompt }], '', 'en');
-        if (!result.success) throw new Error(result.error || 'Failed to get AI response');
-        
-        // Clean and parse the response
-        const cleanJson = result.response
-            .replace(/```json\n?/g, '')
-            .replace(/```\n?/g, '')
-            .trim();
-        
+            return acc;
+        }, {});
+        const normalizedQuestions = Object.values(uniqueQuestions);
+        // Gemini promptu ve AI kontrolü
+        const prompt = `Analyze these questions and group them by similar intent/meaning. Each question should only be counted once in its exact form.\n\nQuestions to analyze:\n${normalizedQuestions.map(q => `- Text: "${q.originalText}", Count: ${q.count}, Language: ${q.language || 'unknown'}, Hotel: ${q.hotel || 'Unknown'}, Category: ${q.category || 'general'}, Facility: ${q.facility || 'none'}`).join('\\n')}\n\nRules for grouping:\n1. Each unique question text should only be counted ONCE\n2. Questions with the same meaning in different languages should be grouped together\n3. Similar complaints/questions about different hotels should be separate groups\n4. Keep exact counts - do not inflate numbers\n5. Use the most recent question as the representative question\n6. Maintain original language and hotel information\n7. **MOST IMPORTANT:** Questions from different categories (e.g. food, room, facility, pillow, restaurant, pool, etc.) MUST NEVER be grouped together. For example, "What is the main restaurant's name?" and "Are there pillows in the room?" MUST be in different groups, even if they are both questions about the hotel.\n\nReturn a JSON array where each group has:\n- question: The representative question text (most recent version)\n- count: EXACT number of times this question type was asked\n- category: The most appropriate category\n- facility: Specific facility if relevant\n- hotels: Array of mentioned hotels (only valid hotels: "Belvil", "Zeugma", "Ayscha")\n- languages: Array of languages used\n- percentage: Percentage of total questions (rounded to nearest whole number)\n\nImportant: Return ONLY the JSON array, no other text. Ensure counts are exact and not inflated.`;
         try {
-            console.log('🔄 Parsing Gemini response...');
+            console.log(`🤖 [${i+1}/${nlpGroups.length}] Gemini'ye gönderilen grup:`, normalizedQuestions.map(q => q.originalText));
+            const result = await geminiService.generateResponse([{ role: 'user', content: prompt }], '', 'en');
+            if (!result.success) throw new Error(result.error || 'Failed to get AI response');
+            const cleanJson = result.response.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
             const groups = JSON.parse(cleanJson);
-            console.log('✅ Successfully parsed', groups.length, 'groups');
-            
-            // Validate and clean each group
-            const validGroups = groups
-                .filter(group => {
-                    // Must have a valid question
-                    if (!group.question || typeof group.question !== 'string') {
-                        console.log('⚠️ Skipping invalid group - missing question');
-                        return false;
-                    }
-                    
-                    // Validate count is reasonable
-                    if (!group.count || group.count > normalizedQuestions.length) {
-                        console.log('⚠️ Skipping invalid group - invalid count');
-                        return false;
-                    }
-                    
-                    return true;
-                })
-                .map(group => ({
-                    ...group,
-                    // Ensure hotels array is valid
-                    hotels: (group.hotels || [])
-                        .filter(hotel => ["Belvil", "Zeugma", "Ayscha"].includes(hotel))
-                        .filter((hotel, index, self) => self.indexOf(hotel) === index),
-                    // Recalculate percentage based on total questions
-                    percentage: Math.round((group.count / questions.length) * 100)
-                }));
-
-            console.log('✅ Validated', validGroups.length, 'groups');
-
-            // Double check total counts don't exceed input
-            const totalGroupedCount = validGroups.reduce((sum, group) => sum + group.count, 0);
-            if (totalGroupedCount > questions.length) {
-                console.warn(`⚠️ Warning: Grouped count (${totalGroupedCount}) exceeds total questions (${questions.length}). Using fallback grouping.`);
-                return fallbackGrouping(normalizedQuestions);
-            }
-            
-            // Sort by count and then by most recent
-            return validGroups.sort((a, b) => b.count - a.count);
-        } catch (jsonError) {
-            console.error('❌ Failed to parse AI grouping response:', jsonError);
-            return fallbackGrouping(normalizedQuestions);
+            // Temsili soru seçimi: En sık geçen veya en yeni
+            groups.forEach(g => {
+                if (Array.isArray(g.question)) {
+                    // Eğer AI birden fazla soru döndürdüyse, en sık geçen veya en yeni olanı seç
+                    g.question = g.question[0];
+                }
+            });
+            allGroups.push(...groups);
+            console.log(`✅ [${i+1}/${nlpGroups.length}] Gemini'den dönen grup sayısı:`, groups.length);
+        } catch (err) {
+            console.error(`❌ [${i+1}/${nlpGroups.length}] Gemini gruplama hatası:`, err);
+            // Hata olursa fallback ile gruplama
+            const fallback = fallbackGrouping(normalizedQuestions);
+            allGroups.push(...fallback);
         }
-    } catch (error) {
-        console.error('❌ AI Grouping failed:', error);
-        return fallbackGrouping(normalizedQuestions);
     }
+    // Son olarak, tüm grupları kategori ve otel bazında tekrar birleştir (gerekirse)
+    // (Burada istersen daha ileri birleştirme yapılabilir)
+    console.log('🎯 Toplam grup sayısı:', allGroups.length);
+    return allGroups;
 }
 
 function fallbackGrouping(normalizedQuestions) {
@@ -449,24 +445,20 @@ function fallbackGrouping(normalizedQuestions) {
         return [];
     }
 
-    // Create groups based on exact text matches first
+    // Create groups based on exact text, hotel, and category
     const groups = {};
-    
     normalizedQuestions.forEach((q, index) => {
         if (!q) {
             console.log(`⚠️ Skipping invalid question at index ${index}`);
             return;
         }
-
-        // Get text from either message or text field
         const text = q.message || q.text || '';
         if (!text.trim()) {
             console.log(`⚠️ Skipping empty message at index ${index}`);
             return;
         }
-
-        const key = `${text.toLowerCase()}_${q.hotel || 'Unknown'}`;
-        
+        // Kategori ve otel ile anahtar oluştur
+        const key = `${text.toLowerCase()}_${q.hotel || 'Unknown'}_${q.category || 'general'}`;
         if (!groups[key]) {
             groups[key] = {
                 question: text,
@@ -515,11 +507,66 @@ function clearCache() {
     questionCache = null;
     lastCacheTime = null;
     console.log('🧹 Analytics cache cleared');
+    // Event emit et
+    analyticsEvents.emit('cacheCleared');
+}
+
+// Cache invalidation fonksiyonunu export et
+function invalidateCache() {
+    invalidateCacheOnNewQuestion();
+}
+
+// Yeni bir gerçek soru geldiğinde topQuestions cache'ini güncelle
+function updateTopQuestionsCache(newQuestion) {
+    // Sadece gerçek sorular işlenir
+    if (!newQuestion.isQuestion) return;
+    // Aynı grupta var mı kontrol et (kategori, otel, dil, metin benzerliği)
+    const idx = topQuestionsCache.findIndex(q =>
+        q.category === newQuestion.category &&
+        q.hotel === newQuestion.hotel &&
+        q.language === newQuestion.language &&
+        q.question.toLowerCase() === (newQuestion.message || newQuestion.text || '').toLowerCase()
+    );
+    if (idx !== -1) {
+        // Grup zaten varsa sayaç artır
+        topQuestionsCache[idx].count++;
+        topQuestionsCache[idx].percentage = 0; // Sonradan güncellenecek
+    } else {
+        // Yeni grup ekle
+        topQuestionsCache.push({
+            question: newQuestion.message || newQuestion.text,
+            count: 1,
+            category: newQuestion.category,
+            facility: newQuestion.facility,
+            hotels: [newQuestion.hotel],
+            languages: [newQuestion.language],
+            percentage: 0
+        });
+    }
+    // Yüzdeleri güncelle
+    const total = topQuestionsCache.reduce((sum, q) => sum + q.count, 0);
+    topQuestionsCache.forEach(q => q.percentage = Math.round((q.count / total) * 100));
+    topQuestionsLastUpdate = new Date().toISOString();
+}
+
+// Top Questions cache'ini dönen fonksiyon
+function getTopQuestionsCache() {
+    // En çok sorulandan başla, ilk 10'u döndür
+    return {
+        success: true,
+        questions: topQuestionsCache.sort((a, b) => b.count - a.count).slice(0, 10),
+        lastUpdated: topQuestionsLastUpdate
+    };
 }
 
 module.exports = {
     analyzeQuestions,
     clearCache,
     isQuestion,
-    categorizeQuestion
+    categorizeQuestion,
+    invalidateCache,
+    analyticsEvents,
+    groupSimilarQuestions,
+    updateTopQuestionsCache,
+    getTopQuestionsCache
 };

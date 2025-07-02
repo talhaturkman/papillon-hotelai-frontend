@@ -6,6 +6,7 @@ const firebaseService = require('../services/firebase');
 const elevenLabsService = require('../services/elevenlabs');
 const translationService = require('../services/translation');
 const placesService = require('../services/places');
+const questionAnalytics = require('../services/questionAnalytics');
 
 router.post('/tts', async (req, res) => {
         const { text, language = 'tr', gender = 'female' } = req.body;
@@ -44,14 +45,16 @@ router.post('/', async (req, res) => {
         }
 
         // 1. Detect conversation context (hotel, language)
-        const hotel = await geminiService.detectHotelWithAI(message, history);
-        const detectedLanguage = await geminiService.detectLanguage(message, history);
+        let hotel = await geminiService.detectHotelWithAI(message, history);
+        let detectedLanguage = await geminiService.detectLanguage(message, history);
+        if (!hotel) hotel = 'Unknown';
+        if (!detectedLanguage) detectedLanguage = 'tr';
         
         // Add user's message to history for this turn
         const chatHistory = [...history, { role: 'user', content: message }];
 
         // Log the question for analytics
-        await firebaseService.logQuestionForAnalysis({
+        const questionId = await firebaseService.logQuestionForAnalysis({
             message,
             session_id,
             hotel,
@@ -62,7 +65,61 @@ router.post('/', async (req, res) => {
             } : null
         });
 
-        // 2. Check if it's a location query
+        // 2. REAL-TIME QUESTION ANALYSIS - Anında soru analizi
+        if (questionId) {
+            try {
+                console.log(`🔍 Starting real-time analysis for question: ${questionId}`);
+                
+                // Anında isQuestion kontrolü
+                const isQuestion = await questionAnalytics.isQuestion(message, detectedLanguage);
+                console.log(`❓ Is question "${message}": ${isQuestion}`);
+                
+                if (isQuestion) {
+                    // Anında kategorizasyon
+                    const categorization = await questionAnalytics.categorizeQuestion(message);
+                    console.log(`📊 Categorization for "${message}":`, categorization);
+                    
+                    // Firebase'i güncelle
+                    await firebaseService.updateQuestionAnalytics(questionId, {
+                        isQuestion: true,
+                        categorization,
+                        preprocessed: true,
+                        category: categorization.category,
+                        facility: categorization.facility,
+                        analyzedAt: new Date().toISOString()
+                    });
+                    
+                    console.log(`✅ Question ${questionId} analyzed and categorized in real-time`);
+                    
+                    // Cache'i temizle ki analytics panosu anında güncellensin
+                    questionAnalytics.invalidateCache();
+                    // Top Questions cache'ini güncelle
+                    questionAnalytics.updateTopQuestionsCache({
+                        message,
+                        text: message,
+                        hotel,
+                        language: detectedLanguage,
+                        category: categorization.category,
+                        facility: categorization.facility,
+                        isQuestion: true
+                    });
+                } else {
+                    // Soru değilse işaretle
+                    await firebaseService.updateQuestionAnalytics(questionId, {
+                        isQuestion: false,
+                        preprocessed: true,
+                        analyzedAt: new Date().toISOString()
+                    });
+                    
+                    console.log(`❌ Question ${questionId} marked as non-question`);
+                }
+            } catch (analysisError) {
+                console.error('❌ Real-time analysis failed:', analysisError);
+                // Analiz başarısız olsa bile devam et
+            }
+        }
+
+        // 3. Check if it's a location query
         const locationAnalysis = await geminiService.analyzeLocationQuery(message, history, detectedLanguage);
         console.log('🔍 Location analysis:', locationAnalysis);
 
@@ -122,7 +179,7 @@ router.post('/', async (req, res) => {
             });
         }
 
-        // 3. For non-location queries, use standard response generation
+        // 4. For non-location queries, use standard response generation
         const knowledge = await firebaseService.searchKnowledge(hotel, detectedLanguage);
         response = await geminiService.generateResponse(
             chatHistory,
@@ -138,9 +195,20 @@ router.post('/', async (req, res) => {
 
     } catch (error) {
         console.error('❌ Chat endpoint error:', error);
+        
+        // Check if it's a Gemini API error
+        if (error.message && error.message.includes('Gemini API')) {
+            return res.status(503).json({
+                success: false,
+                error: 'AI service is temporarily unavailable. Please try again in a moment.',
+                retryAfter: 30
+            });
+        }
+        
         return res.status(500).json({
             success: false,
-            error: 'An error occurred while processing your request.'
+            error: 'An error occurred while processing your request. Please try again.',
+            message: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
     }
 });

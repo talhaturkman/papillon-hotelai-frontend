@@ -169,8 +169,12 @@ class FirebaseService {
             const docRef = await this.db.collection('questions_log').add({
                 ...questionData,
                 createdAt: new Date().toISOString(),
-                preprocessed: true
+                preprocessed: false,
+                isQuestion: false,
+                category: 'general',
+                facility: null
             });
+            console.log(`📝 Question logged for analysis: ${docRef.id}`);
             return docRef.id;
         } catch (error) {
             console.error('Failed to log question:', error);

@@ -83,7 +83,16 @@ function ChatInterface() {
         localStorage.setItem(LOCAL_SESSION_KEY, response.data.sessionId);
       }
     } catch (error) {
-      const errorMessage = { id: Date.now() + 1, role: 'assistant', content: 'Üzgünüm, bir sorun oluştu. Lütfen tekrar deneyin.', timestamp: new Date() };
+      console.error('Chat error:', error);
+      let errorContent = 'Üzgünüm, bir sorun oluştu. Lütfen tekrar deneyin.';
+      
+      if (error.response?.status === 503) {
+        errorContent = 'AI servisi geçici olarak kullanılamıyor. Lütfen birkaç dakika sonra tekrar deneyin.';
+      } else if (error.response?.data?.error) {
+        errorContent = error.response.data.error;
+      }
+      
+      const errorMessage = { id: Date.now() + 1, role: 'assistant', content: errorContent, timestamp: new Date() };
       setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
@@ -113,7 +122,15 @@ function ChatInterface() {
       setMessages(prev => [...prev, assistantMessage]);
     } catch (error) {
       console.error("Chat error:", error);
-      const errorMessage = { id: Date.now() + 1, role: 'assistant', content: 'Üzgünüm, bir sorun oluştu. Lütfen tekrar deneyin.', timestamp: new Date() };
+      let errorContent = 'Üzgünüm, bir sorun oluştu. Lütfen tekrar deneyin.';
+      
+      if (error.response?.status === 503) {
+        errorContent = 'AI servisi geçici olarak kullanılamıyor. Lütfen birkaç dakika sonra tekrar deneyin.';
+      } else if (error.response?.data?.error) {
+        errorContent = error.response.data.error;
+      }
+      
+      const errorMessage = { id: Date.now() + 1, role: 'assistant', content: errorContent, timestamp: new Date() };
       setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
@@ -229,7 +246,7 @@ function ChatInterface() {
           <div key={message.id} className={`message ${message.role}`}>
             {message.role === 'assistant' ? (
               <>
-                <div dangerouslySetInnerHTML={{ __html: formatMessage(message.content.replace('[DESTEK_TALEBI]', '')) }} />
+                <div dangerouslySetInnerHTML={{ __html: formatMessage((message.content || '').replace('[DESTEK_TALEBI]', '')) }} />
                 {message.placesData && <MapComponent placesData={message.placesData} />}
                 {message.offerSupport && (
                   <div className="support-actions">

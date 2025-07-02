@@ -11,6 +11,8 @@ const AnalyticsTab = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [lastUpdate, setLastUpdate] = useState(null);
+    const [autoRefresh, setAutoRefresh] = useState(true);
+    const [refreshInterval, setRefreshInterval] = useState(null);
 
     const fetchQuestions = async (force = false) => {
         try {
@@ -32,7 +34,24 @@ const AnalyticsTab = () => {
 
     useEffect(() => {
         fetchQuestions();
-    }, []);
+        
+        // Otomatik yenileme başlat (30 saniyede bir)
+        if (autoRefresh) {
+            const interval = setInterval(() => {
+                console.log('🔄 Auto-refreshing analytics...');
+                fetchQuestions();
+            }, 30000); // 30 saniye
+            
+            setRefreshInterval(interval);
+        }
+        
+        // Cleanup
+        return () => {
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+            }
+        };
+    }, [autoRefresh]);
 
     if (loading) {
         return (
@@ -82,7 +101,14 @@ const AnalyticsTab = () => {
                         variant="contained"
                         color="secondary"
                         startIcon={<CachedIcon />}
-                        onClick={() => fetchQuestions()}
+                        onClick={async () => {
+                            try {
+                                await axios.delete('/api/analytics/clear-cache');
+                                fetchQuestions(true);
+                            } catch (error) {
+                                console.error('Cache clear failed:', error);
+                            }
+                        }}
                         sx={{ py: 0.5, px: 2 }}
                     >
                         CACHE TEMİZLE
@@ -90,19 +116,40 @@ const AnalyticsTab = () => {
                     <Button
                         size="small"
                         variant="contained"
-                        color="error"
+                        color={autoRefresh ? "error" : "success"}
                         startIcon={<StopIcon />}
+                        onClick={() => {
+                            setAutoRefresh(!autoRefresh);
+                            if (refreshInterval) {
+                                clearInterval(refreshInterval);
+                                setRefreshInterval(null);
+                            }
+                        }}
                         sx={{ py: 0.5, px: 2 }}
                     >
-                        OTOMATİK DURDUR
+                        {autoRefresh ? "OTOMATİK DURDUR" : "OTOMATİK BAŞLAT"}
                     </Button>
                 </Box>
             </Box>
-            {lastUpdate && (
-                <Typography variant="caption" color="textSecondary" sx={{ mb: 1.5, display: 'block', fontSize: '0.8rem' }}>
-                    Son güncelleme: {lastUpdate}
+            <Box sx={{ mb: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                {lastUpdate && (
+                    <Typography variant="caption" color="textSecondary" sx={{ fontSize: '0.8rem' }}>
+                        Son güncelleme: {lastUpdate}
+                    </Typography>
+                )}
+                <Typography 
+                    variant="caption" 
+                    color={autoRefresh ? "success.main" : "text.secondary"}
+                    sx={{ 
+                        fontSize: '0.8rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 0.5
+                    }}
+                >
+                    {autoRefresh ? "🔄 Otomatik yenileme aktif" : "⏸️ Otomatik yenileme durduruldu"}
                 </Typography>
-            )}
+            </Box>
 
             <Grid container spacing={2}>
                 <Grid item xs={12} md={6}>
