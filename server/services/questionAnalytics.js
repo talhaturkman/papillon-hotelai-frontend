@@ -351,7 +351,7 @@ function cosineSimilarity(vecA, vecB) {
         dotProduct += vecA[i] * vecB[i];
         normA += vecA[i] * vecA[i];
         normB += vecB[i] * vecB[i];
-    }
+            }
     
     if (normA === 0 || normB === 0) return 0;
     
@@ -376,7 +376,7 @@ async function getEmbedding(text) {
     const cached = embeddingCache.get(cacheKey);
     if (cached && (Date.now() - cached.timestamp) < embeddingCacheValidity) {
         return cached.embedding;
-    }
+                }
     
     try {
         console.log('🔑 Using API Key:', process.env.GEMINI_API_KEY ? 'Present' : 'Missing');
@@ -507,16 +507,16 @@ async function groupSimilarQuestions(questions) {
                 foundGroup.count += question.count || 1;
                 if (question.hotel && !foundGroup.hotels.includes(question.hotel)) {
                     foundGroup.hotels.push(question.hotel);
-                }
+            }
                 if (question.language && !foundGroup.languages.includes(question.language)) {
                     foundGroup.languages.push(question.language);
-                }
+            }
                 // En yeni timestamp ve metni temsilci olarak tut
                 const timestamp = question.timestamp || new Date().toISOString();
                 if (timestamp > foundGroup.timestamp) {
                     foundGroup.timestamp = timestamp;
                     foundGroup.question = question.text;
-                }
+            }
             } else {
                 // Yeni grup oluştur
                 groups.push({

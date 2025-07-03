@@ -304,12 +304,39 @@ class FirebaseService {
         return chunks;
     }
 
-    async storeKnowledge(hotel, language, kind, content, documentDate = null) {
+    async storeKnowledge(hotel, language, kind, content, documentDate = null, restaurant = null) {
         await this.ensureInitialized();
         if (!this.isInitialized) return { success: false, error: 'Firebase not initialized' };
 
-        // Normalize kind to match Firebase document names
+        const normalizedHotel = (hotel === 'Papillon' || hotel === 'Tümü') ? 'All' : hotel;
         const normalizedKind = kind.charAt(0).toUpperCase() + kind.slice(1).toLowerCase();
+
+        // F&B için özel mantık
+        if (normalizedKind === 'Fb' && restaurant) {
+            // kinds/FB/{restoran_adi}/chunks
+            const fbDocRef = this.db.collection('knowledge_base').doc('Papillon')
+                .collection(normalizedHotel).doc(language)
+                .collection('kinds').doc('FB');
+            const restaurantCollectionRef = fbDocRef.collection(restaurant);
+            const chunks = this.chunkText(content);
+            // Önce eski chunk'ları sil
+            const snapshot = await restaurantCollectionRef.get();
+            if (!snapshot.empty) {
+                const deleteBatch = this.db.batch();
+                snapshot.docs.forEach(doc => deleteBatch.delete(doc.ref));
+                await deleteBatch.commit();
+            }
+            // Yeni chunk'ları ekle
+            const writeBatch = this.db.batch();
+            chunks.forEach((chunk, index) => {
+                const docRef = restaurantCollectionRef.doc(`chunk_${index}`);
+                writeBatch.set(docRef, { text: chunk });
+            });
+            await fbDocRef.set({ updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+            await writeBatch.commit();
+            console.log(`[Firestore] F&B için kaydedildi: Papillon/${normalizedHotel}/${language}/kinds/FB/${restaurant}`);
+            return { success: true, chunks: chunks.length };
+        }
 
         // For daily content, ensure we always have a date
         if (normalizedKind === 'Daily') {
@@ -333,13 +360,13 @@ class FirebaseService {
         }
 
         const kindDocRef = this.db.collection('knowledge_base').doc('Papillon')
-            .collection(hotel).doc(language)
+            .collection(normalizedHotel).doc(language)
             .collection('kinds').doc(normalizedKind);
 
         const chunksCollectionRef = kindDocRef.collection('chunks');
         const chunks = this.chunkText(content);
         
-        console.log(`[Firestore] Storing knowledge to: Papillon/${hotel}/${language}/kinds/${normalizedKind}`);
+        console.log(`[Firestore] Storing knowledge to: Papillon/${normalizedHotel}/${language}/kinds/${normalizedKind}`);
 
         // Clear existing chunks if any
         const snapshot = await chunksCollectionRef.get();
@@ -377,10 +404,11 @@ class FirebaseService {
         if (!this.isInitialized) return { success: false, content: '' };
 
         // Normalize hotel name to match Firestore structure
-        const normalizedHotel = hotel ? hotel.charAt(0).toUpperCase() + hotel.slice(1).toLowerCase() : null;
+        let normalizedHotel = hotel ? hotel.charAt(0).toUpperCase() + hotel.slice(1).toLowerCase() : null;
+        if (hotel === 'Papillon' || hotel === 'Tümü') normalizedHotel = 'All';
         console.log(`[Knowledge Search] Starting search for hotel: ${hotel} (normalized: ${normalizedHotel}), language: ${language}`);
 
-        if (!normalizedHotel || !['Belvil', 'Zeugma', 'Ayscha'].includes(normalizedHotel)) {
+        if (!normalizedHotel || !['Belvil', 'Zeugma', 'Ayscha', 'All'].includes(normalizedHotel)) {
             console.log(`[Knowledge Search] Invalid hotel name: ${hotel}`);
             return { success: false, content: '' };
         }
@@ -391,6 +419,7 @@ class FirebaseService {
         let foundGeneral = null;
         let foundDaily = null;
         let foundSpa = null;
+        let foundFB = null; // F&B kategorisi için
 
         const dates = this.getDates();
         const { todayStart, todayEnd, yesterdayStart, yesterdayEnd, todayDate, yesterdayDate } = dates;
@@ -451,63 +480,76 @@ class FirebaseService {
                 const spaChunks = spaChunksSnapshot.docs.map(doc => doc.data().text);
                 console.log(`[Knowledge Search] Found ${spaChunks.length} spa chunks`);
 
-            let todayContent = [];
-            let yesterdayContent = [];
-            if (!dailyChunksSnapshot.empty) {
-                dailyChunksSnapshot.forEach(doc => {
-                    const data = doc.data();
-                        if (!data.date) {
-                            console.warn(`[Knowledge Search] ⚠️ Daily chunk found without date:`, {
-                                id: doc.id,
-                                text: data.text?.substring(0, 100) + '...' // Log first 100 chars of content
-                            });
-                            return;
-                        }
-                        if (data.text && data.date) {
-                            const chunkDate = new Date(data.date.seconds * 1000);
-                            console.log(`[Knowledge Search] Analyzing daily chunk date:`, {
-                                id: doc.id,
-                                chunkDate: chunkDate.toISOString(),
-                                chunkSeconds: data.date.seconds,
-                                todayStartSeconds: todayStart.seconds,
-                                todayEndSeconds: todayEnd.seconds,
-                                yesterdayStartSeconds: yesterdayStart.seconds,
-                                yesterdayEndSeconds: yesterdayEnd.seconds
-                            });
+                // Get F&B chunks (yeni mantık: kinds/FB altındaki tüm koleksiyonlar)
+                const fbChunks = [];
+                const fbDocRef = kindsCollectionRef.doc('FB');
+                const restaurantCollections = await fbDocRef.listCollections();
+                for (const restaurantCol of restaurantCollections) {
+                    const fbChunksSnapshot = await restaurantCol.get();
+                    const chunks = fbChunksSnapshot.docs.map(doc => doc.data().text);
+                    fbChunks.push(...chunks);
+                    console.log(`[Knowledge Search] Found ${chunks.length} chunks for F&B restaurant: ${restaurantCol.id}`);
+                }
+                console.log(`[Knowledge Search] Found ${fbChunks.length} total F&B chunks`);
 
-                            // Check if date falls within today's or yesterday's range
-                            if (data.date.seconds >= todayStart.seconds && data.date.seconds <= todayEnd.seconds) {
-                                todayContent.push(data.text);
-                                console.log(`[Knowledge Search] ✅ Found today's (${todayDate}) chunk:`, { 
-                                    id: doc.id, 
-                                    timestamp: chunkDate.toISOString() 
+                let todayContent = [];
+                let yesterdayContent = [];
+                if (!dailyChunksSnapshot.empty) {
+                    dailyChunksSnapshot.forEach(doc => {
+                        const data = doc.data();
+                            if (!data.date) {
+                                console.warn(`[Knowledge Search] ⚠️ Daily chunk found without date:`, {
+                                    id: doc.id,
+                                    text: data.text?.substring(0, 100) + '...' // Log first 100 chars of content
                                 });
+                                return;
                             }
-                            else if (data.date.seconds >= yesterdayStart.seconds && data.date.seconds <= yesterdayEnd.seconds) {
-                                yesterdayContent.push(data.text);
-                                console.log(`[Knowledge Search] ✅ Found yesterday's (${yesterdayDate}) chunk:`, { 
-                                    id: doc.id, 
-                                    timestamp: chunkDate.toISOString() 
-                                });
-                            } else {
-                                console.log(`[Knowledge Search] ❌ Daily chunk outside target dates:`, { 
-                                    id: doc.id, 
+                            if (data.text && data.date) {
+                                const chunkDate = new Date(data.date.seconds * 1000);
+                                console.log(`[Knowledge Search] Analyzing daily chunk date:`, {
+                                    id: doc.id,
                                     chunkDate: chunkDate.toISOString(),
-                                    today: new Date(todayStart.seconds * 1000).toISOString(),
-                                    yesterday: new Date(yesterdayStart.seconds * 1000).toISOString()
+                                    chunkSeconds: data.date.seconds,
+                                    todayStartSeconds: todayStart.seconds,
+                                    todayEndSeconds: todayEnd.seconds,
+                                    yesterdayStartSeconds: yesterdayStart.seconds,
+                                    yesterdayEndSeconds: yesterdayEnd.seconds
                                 });
+
+                                // Check if date falls within today's or yesterday's range
+                                if (data.date.seconds >= todayStart.seconds && data.date.seconds <= todayEnd.seconds) {
+                                    todayContent.push(data.text);
+                                    console.log(`[Knowledge Search] ✅ Found today's (${todayDate}) chunk:`, { 
+                                        id: doc.id, 
+                                        timestamp: chunkDate.toISOString() 
+                                    });
+                                }
+                                else if (data.date.seconds >= yesterdayStart.seconds && data.date.seconds <= yesterdayEnd.seconds) {
+                                    yesterdayContent.push(data.text);
+                                    console.log(`[Knowledge Search] ✅ Found yesterday's (${yesterdayDate}) chunk:`, { 
+                                        id: doc.id, 
+                                        timestamp: chunkDate.toISOString() 
+                                    });
+                                } else {
+                                    console.log(`[Knowledge Search] ❌ Daily chunk outside target dates:`, { 
+                                        id: doc.id, 
+                                        chunkDate: chunkDate.toISOString(),
+                                        today: new Date(todayStart.seconds * 1000).toISOString(),
+                                        yesterday: new Date(yesterdayStart.seconds * 1000).toISOString()
+                                    });
+                                }
                             }
-                    }
-                });
-            }
+                    });
+                }
                 
                 console.log(`[Knowledge Search] Daily content - Today (${todayDate}): ${todayContent.length} chunks, Yesterday (${yesterdayDate}): ${yesterdayContent.length} chunks`);
                 
                 const result = {
-                general: generalChunks.join('\n\n'),
-                dailyToday: todayContent.join('\n\n'),
-                dailyYesterday: yesterdayContent.join('\n\n'),
-                spa: spaChunks.join('\n\n'),
+                    general: generalChunks.join('\n'),
+                    dailyToday: todayContent.join('\n'),
+                    dailyYesterday: yesterdayContent.join('\n'),
+                    spa: spaChunks.join('\n'),
+                    fb: fbChunks.join('\n'), // F&B bilgisi ekle
                     dates: {
                         today: todayDate,
                         yesterday: yesterdayDate,
@@ -522,6 +564,7 @@ class FirebaseService {
                     dailyToday: result.dailyToday.length > 0,
                     dailyYesterday: result.dailyYesterday.length > 0,
                     spa: result.spa.length > 0,
+                    fb: result.fb.length > 0,
                     dates: result.dates
                 });
 
@@ -533,6 +576,7 @@ class FirebaseService {
                     dailyToday: '',
                     dailyYesterday: '',
                     spa: '',
+                    fb: '',
                     dates: {
                         today: todayDate,
                         yesterday: yesterdayDate,
@@ -563,7 +607,11 @@ class FirebaseService {
                 foundSpa = results.spa;
                 console.log(`[Knowledge Search] SUCCESS: Found SPA info in language: ${lang}`);
             }
-            if (foundGeneral && foundDaily && foundSpa) break;
+            if (!foundFB && results.fb) {
+                foundFB = results.fb;
+                console.log(`[Knowledge Search] SUCCESS: Found F&B info in language: ${lang}`);
+            }
+            if (foundGeneral && foundDaily && foundSpa && foundFB) break;
         }
 
         let finalContent = '';
@@ -583,11 +631,14 @@ class FirebaseService {
         if (foundSpa) {
             finalContent += `### SPA Information ###\n${foundSpa}\n\n`;
         }
+        if (foundFB) {
+            finalContent += `### F&B Information ###\n${foundFB}\n\n`;
+        }
         
         const success = finalContent.length > 0;
         const dailyDates = foundDaily?.dates || { today: todayDate, yesterday: yesterdayDate, hasTodayContent: false, hasYesterdayContent: false };
         
-        console.log(`[Knowledge Search] Final check. General: ${!!foundGeneral}, Daily: ${!!foundDaily}, SPA: ${!!foundSpa}. Length: ${finalContent.length}`);
+        console.log(`[Knowledge Search] Final check. General: ${!!foundGeneral}, Daily: ${!!foundDaily}, SPA: ${!!foundSpa}, F&B: ${!!foundFB}. Length: ${finalContent.length}`);
         return { 
             success, 
             content: finalContent,
@@ -600,6 +651,7 @@ class FirebaseService {
         if (!this.isInitialized) return [];
         try {
             const collections = await this.db.collection('knowledge_base').doc('Papillon').listCollections();
+            // 'All' koleksiyonunu da dahil et
             return collections.map(col => col.id);
         } catch (error) {
             console.error('❌ Error getting available hotels:', error);
