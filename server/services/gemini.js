@@ -91,30 +91,78 @@ class GeminiService {
             const getSystemPrompt = (lang, context) => {
                 if (context && context.trim().length > 0) {
                     const prompts = {
-                        'tr': `Sen bir otel asistanısın. Kullanıcının sorusunu SADECE ve SADECE aşağıdaki Bilgi Metni'ni kullanarak yanıtla.
-ÖNEMLİ ZAMAN KURALI: Bilgi Metni "### Daily Information (Today) ###" ve "### Daily Information (Yesterday) ###" bölümleri içerebilir. Her zaman "(Today)" bölümündeki bilgilere öncelik ver. Eğer cevap sadece "(Yesterday)" bölümünde varsa, cevabı verirken bu bilginin dünkü olduğunu MUTLAKA belirt (örn: "Dünkü programa göre...").
-Diğer tüm sorular için metnin tamamını kullanabilirsin. Cevap metinde yoksa, "Bu konuda detaylı bilgim bulunmuyor." de. Bilgi Metni farklı bir dilde olabilir, yanıtı oluştururken mutlaka TÜRKÇE'ye çevir. KULLANICI BİR İNSAN İLE GÖRÜŞMEK İSTERSE, SADECE ŞUNU YAZ: [DESTEK_TALEBI]. ### Bilgi Metni ###\n${context}\n### Bilgi Metni Sonu ###`,
+                        'tr': `Bir otel asistanısınız. Kullanıcının sorusunu SADECE aşağıdaki Bilgi Metnini kullanarak yanıtlayın.
+ÖNEMLİ ZAMAN KURALI: Bilgi Metni, "### Günlük Bilgiler (Bugün) ###" ve "### Günlük Bilgiler (Dün) ###" bölümlerini içerebilir. Her zaman (Bugün) bölümündeki bilgilere öncelik verin. Cevap sadece (Dün) bölümünde ise, cevap verirken bilginin dünden olduğunu BELİRTMELİSİNİZ (örneğin, "Dünkü programa göre...").
+Metin ayrıca bir "### SPA Bilgileri ###" bölümü de içerebilir. SADECE kullanıcı SPA, wellness, masaj veya bakım ile ilgili bir şey sorduysa bu bölümü kullanın ve cevabın sonuna "Eğer ilgilenirseniz, SPA kataloğumuzdan daha fazla detay verebilirim." cümlesini ekleyin. Diğer tüm sorularda SPA Bilgileri bölümünü asla kullanmayın veya referans vermeyin.
+Diğer tüm sorular için metnin tamamını kullanabilirsiniz. Cevap metinde yoksa, "Bu konuda detaylı bilgim yok." deyin. Bilgi Metni farklı bir dilde olabilir; cevabınız DAİMA TÜRKÇE olmalıdır. KULLANICI BİR İNSANLA GÖRÜŞMEK İSTERSE, SADECE ŞUNU YAZIN: [DESTEK_TALEBI]. ### Bilgi Metni ###
+${context}
+### Bilgi Metni Sonu ###`,
                         'en': `You are a hotel assistant. Answer the user's question using ONLY the Information Text below.
 IMPORTANT TIME RULE: The Information Text may contain "### Daily Information (Today) ###" and "### Daily Information (Yesterday) ###" sections. Always prioritize information from the (Today) section. If the answer is only in the (Yesterday) section, you MUST state that the information is from yesterday when you answer (e.g., "According to yesterday's schedule...").
 The text may also contain a "### SPA Information ###" section. Use this section to answer any questions about the spa, wellness, massages, or treatments. If you use the SPA Information section, after providing the answer, you MUST also ask, "If you are interested, I can provide more details from our SPA catalog."
-For all other questions, you can use the entire text. If the answer is not in the text, say "I don't have detailed information on this topic." The Information Text may be in a different language; you must translate it to ENGLISH. IF THE USER WANTS TO SPEAK TO A HUMAN, RESPOND ONLY WITH: [DESTEK_TALEBI]. ### Information Text ###
-${context}
-### End of Information Text ###`,
+For all other questions, you can use the entire text. If the answer is not in the text, say "I don't have detailed information on this topic." The Information Text may be in a different language; you must translate it to ENGLISH.
+IF THE USER EXPRESSES ANY OF THE FOLLOWING INTENTS, RESPOND ONLY WITH: [DESTEK_TALEBI]
+Examples:
+- Live support
+- I want live support
+- I want to talk to a real person
+- I want to speak to customer service
+- I want support
+- Support
+- Customer service
+- Help
+- Talk to human
+- Talk to operator
+- I want to talk to a human
+- I want to talk to an operator
+- Я хочу поговорить с человеком
+- Ich möchte mit einem Menschen sprechen
+etc.
+### Information Text ###\n${context}\n### End of Information Text ###`,
                         'de': `Sie sind ein Hotelassistent. Beantworten Sie die Frage des Benutzers NUR mit dem unten stehenden Informationstext.
 WICHTIGE ZEITREGEL: Der Informationstext kann die Abschnitte "### Tägliche Informationen (Heute) ###" und "### Tägliche Informationen (Gestern) ###" enthalten. Priorisieren Sie immer Informationen aus dem Abschnitt (Heute). Wenn die Antwort nur im Abschnitt (Gestern) enthalten ist, MÜSSEN Sie bei der Antwort angeben, dass die Informationen von gestern stammen (z. B. "Laut dem gestrigen Programm...").
 Der Text kann auch einen Abschnitt "### SPA-Informationen ###" enthalten. Verwenden Sie diesen Abschnitt, um alle Fragen zum Spa, Wellness, Massagen oder Behandlungen zu beantworten. Wenn Sie den Abschnitt "SPA-Informationen" verwenden, MÜSSEN Sie nach der Antwort auch fragen: "Wenn Sie interessiert sind, kann ich Ihnen weitere Details aus unserem SPA-Katalog geben."
-Für alle anderen Fragen können Sie den gesamten Text verwenden. Wenn die Antwort nicht im Text enthalten ist, sagen Sie "Ich habe keine detaillierten Informationen zu diesem Thema." Der Informationstext kann in einer anderen Sprache sein; Ihre Antwort MUSS IMMER auf DEUTSCH sein. WENN DER BENUTZER MIT EINEM MENSCHEN SPRECHEN MÖCHTE, ANTWORTEN SIE AUSSCHLIESSLICH MIT: [DESTEK_TALEBI]. ### Informationstext ###
-${context}
-### Ende des Informationstextes ###`,
+Für alle anderen Fragen können Sie den gesamten Text verwenden. Wenn die Antwort nicht im Text enthalten ist, sagen Sie "Ich habe keine detaillierten Informationen zu diesem Thema." Der Informationstext kann in einer anderen Sprache sein; Ihre Antwort MUSS IMMER auf DEUTSCH sein.
+WENN DER BENUTZER EINE DER FOLGENDEN ABSICHTEN ÄUSSERT, ANTWORTEN SIE AUSSCHLIESSLICH MIT: [DESTEK_TALEBI]
+Beispiele:
+- Live-Support
+- Ich möchte mit einem Menschen sprechen
+- Ich möchte mit dem Kundenservice sprechen
+- Support
+- Kundenservice
+- Hilfe
+- Mit einem Menschen sprechen
+- Mit einem Operator sprechen
+- Я хочу поговорить с человеком
+- I want live support
+- I want to talk to a real person
+usw.
+### Informationstext ###\n${context}\n### Ende des Informationstextes ###`,
                         'ru': `Вы гостиничный ассистент. Отвечайте на вопрос пользователя, используя ТОЛЬКО приведенный ниже Информационный Текст.
 ВАЖНОЕ ПРАВИЛО ВРЕМЕНИ: Информационный Текст может содержать разделы "### Ежедневная информация (Сегодня) ###" и "### Ежедневная информация (Вчера) ###". Всегда отдавайте приоритет информации из раздела (Сегодня). Если ответ есть только в разделе (Вчера), вы ДОЛЖНЫ указать, что эта информация за вчерашний день, когда отвечаете (например, "Согласно вчерашнему расписанию...").
 Текст также может содержать раздел "### Информация о СПА ###". Используйте этот раздел для ответов на любые вопросы о спа, оздоровлении, массаже или процедурах. Если вы используете раздел "Информация о СПА", после ответа вы ДОЛЖНЫ также спросить: "Если вам интересно, я могу предоставить больше информации из нашего СПА-каталога."
-Для всех остальных вопросов вы можете использовать весь текст. Если ответ не содержится в тексте, скажите "У меня нет подробной информации по этой теме." Информационный текст может быть на другом языке; ваш ответ ВСЕГДА ДОЛЖЕН БЫТЬ на РУССКОМ. ЕСЛИ ПОЛЬЗОВАТЕЛЬ ХОЧЕТ ПОГОВОРИТЬ С ЧЕЛОВЕКОМ, ОТВЕЧАЙТЕ ИСКЛЮЧИТЕЛЬНО: [DESTEK_TALEBI]. ### Информационный текст ###
-${context}
-### Конец информационного текста ###`,
+Для всех остальных вопросов вы можете использовать весь текст. Если ответ не содержится в тексте, скажите "У меня нет подробной информации по этой теме." Информационный текст может быть на другом языке; ваш ответ ВСЕГДА ДОЛЖЕН БЫТЬ на РУССКОМ.
+ЕСЛИ ПОЛЬЗОВАТЕЛЬ ВЫРАЖАЕТ ЛЮБУЮ ИЗ СЛЕДУЮЩИХ НАМЕРЕНИЙ, ОТВЕЧАЙТЕ ИСКЛЮЧИТЕЛЬНО: [DESTEK_TALEBI]
+Примеры:
+- Я хочу поговорить с человеком
+- Я хочу поговорить с оператором
+- Служба поддержки
+- Поддержка
+- Помощь
+- Я хочу поговорить с реальным человеком
+- Я хочу связаться с оператором
+- Support
+- Customer service
+- Help
+- Live support
+- I want live support
+- I want to talk to a real person
+- Ich möchte mit einem Menschen sprechen
+и т.д.
+### Информационный текст ###\n${context}\n### Конец информационного текста ###`,
                         'tr': `Bir otel asistanısınız. Kullanıcının sorusunu SADECE aşağıdaki Bilgi Metnini kullanarak yanıtlayın.
 ÖNEMLİ ZAMAN KURALI: Bilgi Metni, "### Günlük Bilgiler (Bugün) ###" ve "### Günlük Bilgiler (Dün) ###" bölümlerini içerebilir. Her zaman (Bugün) bölümündeki bilgilere öncelik verin. Cevap sadece (Dün) bölümünde ise, cevap verirken bilginin dünden olduğunu BELİRTMELİSİNİZ (örneğin, "Dünkü programa göre...").
-Metin ayrıca bir "### SPA Bilgileri ###" bölümü de içerebilir. Spa, wellness, masajlar veya bakımlar hakkındaki tüm soruları yanıtlamak için bu bölümü kullanın. "SPA Bilgileri" bölümünü kullanırsanız, cevabı verdikten sonra MUTLAKA "Eğer ilgilenirseniz, SPA kataloğumuzdan daha fazla detay verebilirim." diye sormalısınız.
+Metin ayrıca bir "### SPA Bilgileri ###" bölümü de içerebilir. SADECE kullanıcı SPA, wellness, masaj veya bakım ile ilgili bir şey sorduysa bu bölümü kullanın ve cevabın sonuna "Eğer ilgilenirseniz, SPA kataloğumuzdan daha fazla detay verebilirim." cümlesini ekleyin. Diğer tüm sorularda SPA Bilgileri bölümünü asla kullanmayın veya referans vermeyin.
 Diğer tüm sorular için metnin tamamını kullanabilirsiniz. Cevap metinde yoksa, "Bu konuda detaylı bilgim yok." deyin. Bilgi Metni farklı bir dilde olabilir; cevabınız DAİMA TÜRKÇE olmalıdır. KULLANICI BİR İNSANLA GÖRÜŞMEK İSTERSE, SADECE ŞUNU YAZIN: [DESTEK_TALEBI]. ### Bilgi Metni ###
 ${context}
 ### Bilgi Metni Sonu ###`,
@@ -294,6 +342,23 @@ ${context}
         // Parametreleri güvenli hale getir
         const safeMessage = typeof message === 'string' ? message : '';
         const safeLanguage = typeof language === 'string' ? language : 'tr';
+
+        // Otel içi olanak anahtar kelimeleri
+        const hotelAmenities = [
+            'aquapark', 'aqua park', 'havuz', 'spa', 'restoran', 'restaurant', 'bar', 'gym', 'fitness', 'çocuk kulübü', 'kids club', 'hamam', 'sauna', 'buhar odası', 'wellness', 'masaj', 'yüzme', 'pool', 'beach', 'plaj', 'lunapark', 'amusement park', 'water park', 'theme park'
+        ];
+        const lowerMsg = safeMessage.toLowerCase();
+        // Eğer otel içi olanak kelimesi geçiyor ve "yakın", "dışarıda", "en yakın", "nearby", "outside", "closest" gibi dış mekan anahtar kelimeleri YOKSA, otel içi olarak işaretle
+        const outsideKeywords = ['yakın', 'dışarıda', 'en yakın', 'nearby', 'outside', 'closest', 'etraf', 'çevre', 'surrounding', 'around'];
+        const isAmenity = hotelAmenities.some(k => lowerMsg.includes(k));
+        const isOutside = outsideKeywords.some(k => lowerMsg.includes(k));
+        if (isAmenity && !isOutside) {
+            return {
+                category: 'OTEL_İÇİ',
+                confidence: 0.95,
+                isHotelAmenity: true
+            };
+        }
 
         const systemPrompts = {
             'tr': `Sen bir otel asistanısın ve konum sorularını analiz ediyorsun. Soruyu analiz et ve şu kategorilerden birine yerleştir:
@@ -545,6 +610,77 @@ Please respond with just "true" if it's about hotel facilities, or "false" if it
         } catch (error) {
             console.error('❌ Hotel facility check error:', error);
             return false;
+        }
+    }
+
+    async analyzeUserIntent(message, history, language = 'tr') {
+        // Yeni prompt: JSON formatında niyet, otel, olanak ve flag'leri döndür
+        const prompt = `DİKKAT: Otel olanakları, hizmetler, fiyatlar, saatler, yemek, spa, WiFi, oda servisi, restoran, vb. sorular ASLA support değildir, intent her zaman info olmalıdır. Sadece insanla görüşmek, canlı destek, müşteri hizmetleri, support, help, operator gibi ifadeler support olur.
+
+Kullanıcıdan gelen mesajı analiz et ve aşağıdaki formatta YALNIZCA JSON olarak yanıtla:
+{
+  "intent": "info|support|location|greeting|other",
+  "hotel": "...", // varsa otel adı
+  "amenity": "...", // varsa olanak adı (ör: aquapark, spa, uyandırma servisi, wifi, oda servisi, restoran, fiyat, saat, yemek, vb.)
+  "offerSupport": true|false,
+  "needHotelSelection": true|false
+}
+
+Örnekler:
+1. Soru: 'Canlı destek istiyorum.'
+Yanıt:
+{"intent": "support", "hotel": null, "amenity": null, "offerSupport": true, "needHotelSelection": false}
+
+2. Soru: 'Destek'
+Yanıt:
+{"intent": "support", "hotel": null, "amenity": null, "offerSupport": true, "needHotelSelection": false}
+
+3. Soru: 'Help'
+Yanıt:
+{"intent": "support", "hotel": null, "amenity": null, "offerSupport": true, "needHotelSelection": false}
+
+4. Soru: 'Aquapark hakkında bilgi alabilir miyim?'
+Yanıt:
+{"intent": "info", "hotel": null, "amenity": "aquapark", "offerSupport": false, "needHotelSelection": true}
+
+5. Soru: 'Belvil otelinde spa var mı?'
+Yanıt:
+{"intent": "info", "hotel": "Belvil", "amenity": "spa", "offerSupport": false, "needHotelSelection": false}
+
+6. Soru: 'WiFi var mı?'
+Yanıt:
+{"intent": "info", "hotel": null, "amenity": "wifi", "offerSupport": false, "needHotelSelection": true}
+
+7. Soru: 'Oda servisi var mı?'
+Yanıt:
+{"intent": "info", "hotel": null, "amenity": "oda servisi", "offerSupport": false, "needHotelSelection": true}
+
+8. Soru: 'Spa fiyatları nedir?'
+Yanıt:
+{"intent": "info", "hotel": null, "amenity": "spa fiyatları", "offerSupport": false, "needHotelSelection": true}
+
+9. Soru: 'Restoran saatleri nedir?'
+Yanıt:
+{"intent": "info", "hotel": null, "amenity": "restoran saatleri", "offerSupport": false, "needHotelSelection": true}
+
+10. Soru: 'En yakın hastane nerede?'
+Yanıt:
+{"intent": "location", "hotel": null, "amenity": "hastane", "offerSupport": false, "needHotelSelection": false}
+
+11. Soru: 'Merhaba'
+Yanıt:
+{"intent": "greeting", "hotel": null, "amenity": null, "offerSupport": false, "needHotelSelection": false}
+
+Kullanıcı mesajı: "${message}"
+YANITIN SADECE JSON OLSUN, AÇIKLAMA EKLEME, SADECE JSON DÖNDÜR.`;
+        try {
+            const result = await this.generateSingleResponse(prompt, language);
+            const jsonStr = result.response.match(/\{[\s\S]*\}/)?.[0];
+            if (!jsonStr) throw new Error('No JSON found in Gemini response');
+            return JSON.parse(jsonStr);
+        } catch (error) {
+            console.error('❌ Gemini analyzeUserIntent error:', error);
+            return null;
         }
     }
 }

@@ -5,8 +5,8 @@ const questionAnalytics = require('../services/questionAnalytics');
 // Get top 10 most asked questions
 router.get('/top-questions', async (req, res) => {
     try {
-        // Sadece cache'i döndür
-        const result = questionAnalytics.getTopQuestionsCache();
+        // Artık async fonksiyon, await ile çağırıyoruz
+        const result = await questionAnalytics.getTopQuestionsCache();
         res.json(result);
     } catch (error) {
         console.error('❌ Analytics error:', error);
@@ -112,6 +112,22 @@ router.get('/stats', async (req, res) => {
             error: 'İstatistikler alınamadı',
             message: error.message
         });
+    }
+});
+
+// Tam analiz endpointi
+router.post('/full-analyze', async (req, res) => {
+    try {
+        questionAnalytics.clearCache();
+        const result = await questionAnalytics.analyzeQuestions(true);
+        res.json({
+            success: true,
+            questions: result.questions,
+            lastUpdated: result.lastUpdated,
+            totalQuestions: result.questions.length
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
     }
 });
 

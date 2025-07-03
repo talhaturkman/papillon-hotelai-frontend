@@ -1,8 +1,11 @@
+require('dotenv').config();
 const geminiService = require('./gemini');
 const firebaseService = require('./firebase');
 const translationService = require('./translation');
-const natural = require('natural');
-const tokenizer = new natural.WordTokenizer();
+// Natural kütüphanesini kaldırıyoruz - embedding tabanlı gruplama kullanacağız
+// const natural = require('natural');
+// const tokenizer = new natural.WordTokenizer();
+// const levenshtein = natural.LevenshteinDistance;
 
 let questionCache = null;
 let lastCacheTime = null;
@@ -15,6 +18,10 @@ const analyticsEvents = new EventEmitter();
 // Top Questions için gerçek zamanlı cache
 let topQuestionsCache = [];
 let topQuestionsLastUpdate = null;
+
+// Gemini Embedding 001 için embedding cache
+let embeddingCache = new Map();
+const embeddingCacheValidity = 24 * 60 * 60 * 1000; // 24 saat
 
 // Yeni soru geldiğinde cache'i temizle
 function invalidateCacheOnNewQuestion() {
@@ -330,174 +337,256 @@ async function analyzeQuestions(forceRefresh = false) {
     }
 }
 
-// NLP tabanlı ön gruplama fonksiyonu
-function nlpPreClusterQuestions(questions, similarityThreshold = 0.8) {
-    // Küçük harfe çevir, noktalama temizle, tokenize et
-    const clean = (text) => tokenizer.tokenize(
-        (text || '').toLowerCase().replace(/[.,!?;:()\[\]{}"'`]/g, '')
-    ).join(' ');
-
-    // Her sorunun temizlenmiş halini ve orijinalini tut
-    const processed = questions.map(q => ({
-        ...q,
-        _clean: clean(q.message || q.text || '')
-    }));
-
-    const groups = [];
-    processed.forEach((q, idx) => {
-        let found = false;
-        for (const group of groups) {
-            // Cosine similarity ile benzerlik kontrolü
-            const sim = natural.JaroWinklerDistance(q._clean, group[0]._clean);
-            if (sim >= similarityThreshold) {
-                group.push(q);
-                found = true;
-                break;
-            }
-        }
-        if (!found) {
-            groups.push([q]);
-        }
-    });
-    // Grupları orijinal formatta döndür
-    return groups.map(g => g.map(q => {
-        const { _clean, ...rest } = q;
-        return rest;
-    }));
+// Cosine similarity hesaplama
+function cosineSimilarity(vecA, vecB) {
+    if (!Array.isArray(vecA) || !Array.isArray(vecB) || vecA.length !== vecB.length) {
+        return 0;
+    }
+    
+    let dotProduct = 0;
+    let normA = 0;
+    let normB = 0;
+    
+    for (let i = 0; i < vecA.length; i++) {
+        dotProduct += vecA[i] * vecB[i];
+        normA += vecA[i] * vecA[i];
+        normB += vecB[i] * vecB[i];
+    }
+    
+    if (normA === 0 || normB === 0) return 0;
+    
+    return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
 }
 
-async function groupSimilarQuestions(questions) {
-    console.log('🔍 Starting groupSimilarQuestions with', questions.length, 'questions');
-    // NLP ile ön gruplama
-    const nlpGroups = nlpPreClusterQuestions(questions, 0.85);
-    console.log('🧠 NLP ön gruplama sonucu:', nlpGroups.length, 'grup');
-    let allGroups = [];
-    for (let i = 0; i < nlpGroups.length; i++) {
-        const group = nlpGroups[i];
-        if (group.length === 0) continue;
-        // Normalizasyon ve deduplikasyon
-        const uniqueQuestions = group.reduce((acc, curr) => {
-            const text = curr.message || curr.text || '';
-            if (!text.trim()) return acc;
-            const key = `${text.toLowerCase()}_${curr.hotel || 'Unknown'}_${curr.language || 'unknown'}`;
-            if (!acc[key]) {
-                acc[key] = {
-                    ...curr,
-                    text: text,
-                    count: 1,
-                    originalText: text,
-                    language: curr.language || 'unknown',
-                    category: curr.category || 'general',
-                    facility: curr.facility || null,
-                    timestamp: curr.timestamp || new Date().toISOString()
-                };
-            } else {
-                acc[key].count++;
-                const timestamp = curr.timestamp || new Date().toISOString();
-                if (timestamp > acc[key].timestamp) {
-                    acc[key].timestamp = timestamp;
-                    acc[key].originalText = text;
-                }
+// Gemini Embedding 001 ile embedding alma
+async function getEmbedding(text) {
+    if (!text || typeof text !== 'string' || !text.trim()) {
+        throw new Error('Invalid text for embedding');
+    }
+    
+    // Debug: Check if API key is available
+    if (!process.env.GEMINI_API_KEY) {
+        console.error('❌ GEMINI_API_KEY not found in environment variables');
+        console.log('Available env vars:', Object.keys(process.env).filter(key => key.includes('API') || key.includes('GEMINI')));
+        throw new Error('GEMINI_API_KEY not configured');
+    }
+    
+    // Cache kontrolü
+    const cacheKey = text.toLowerCase().trim();
+    const cached = embeddingCache.get(cacheKey);
+    if (cached && (Date.now() - cached.timestamp) < embeddingCacheValidity) {
+        return cached.embedding;
+    }
+    
+    try {
+        console.log('🔑 Using API Key:', process.env.GEMINI_API_KEY ? 'Present' : 'Missing');
+        
+        // Gemini Embedding API çağrısı (API key query parametresi ile)
+        const apiKey = process.env.GEMINI_API_KEY;
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${apiKey}`,
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model: 'models/text-embedding-004',
+                    content: {
+                        parts: [{ text }]
+                    }
+                })
             }
-            return acc;
-        }, {});
-        const normalizedQuestions = Object.values(uniqueQuestions);
-        // Gemini promptu ve AI kontrolü
-        const prompt = `Analyze these questions and group them by similar intent/meaning. Each question should only be counted once in its exact form.\n\nQuestions to analyze:\n${normalizedQuestions.map(q => `- Text: "${q.originalText}", Count: ${q.count}, Language: ${q.language || 'unknown'}, Hotel: ${q.hotel || 'Unknown'}, Category: ${q.category || 'general'}, Facility: ${q.facility || 'none'}`).join('\\n')}\n\nRules for grouping:\n1. Each unique question text should only be counted ONCE\n2. Questions with the same meaning in different languages should be grouped together\n3. Similar complaints/questions about different hotels should be separate groups\n4. Keep exact counts - do not inflate numbers\n5. Use the most recent question as the representative question\n6. Maintain original language and hotel information\n7. **MOST IMPORTANT:** Questions from different categories (e.g. food, room, facility, pillow, restaurant, pool, etc.) MUST NEVER be grouped together. For example, "What is the main restaurant's name?" and "Are there pillows in the room?" MUST be in different groups, even if they are both questions about the hotel.\n\nReturn a JSON array where each group has:\n- question: The representative question text (most recent version)\n- count: EXACT number of times this question type was asked\n- category: The most appropriate category\n- facility: Specific facility if relevant\n- hotels: Array of mentioned hotels (only valid hotels: "Belvil", "Zeugma", "Ayscha")\n- languages: Array of languages used\n- percentage: Percentage of total questions (rounded to nearest whole number)\n\nImportant: Return ONLY the JSON array, no other text. Ensure counts are exact and not inflated.`;
+        );
+        
+        if (!response.ok) {
+            throw new Error(`Embedding API error: ${response.status} ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        const embedding = data.embedding.values;
+        
+        // Cache'e kaydet
+        embeddingCache.set(cacheKey, {
+            embedding: embedding,
+            timestamp: Date.now()
+        });
+        
+        return embedding;
+    } catch (error) {
+        console.error('❌ Embedding generation failed:', error);
+        throw error;
+    }
+}
+
+// Embedding'i hem orijinal dilde hem de İngilizce çevirisiyle alıp ortalamasını döndüren fonksiyon
+async function getEmbeddingWithTranslation(text, language) {
+    // Orijinal embedding
+    const originalEmbedding = await getEmbedding(text);
+
+    // İngilizce çeviri gerekiyorsa çevir ve embedding al
+    let translatedEmbedding = originalEmbedding;
+    if (language && language !== 'en') {
         try {
-            console.log(`🤖 [${i+1}/${nlpGroups.length}] Gemini'ye gönderilen grup:`, normalizedQuestions.map(q => q.originalText));
-            const result = await geminiService.generateResponse([{ role: 'user', content: prompt }], '', 'en');
-            if (!result.success) throw new Error(result.error || 'Failed to get AI response');
-            const cleanJson = result.response.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-            const groups = JSON.parse(cleanJson);
-            // Temsili soru seçimi: En sık geçen veya en yeni
-            groups.forEach(g => {
-                if (Array.isArray(g.question)) {
-                    // Eğer AI birden fazla soru döndürdüyse, en sık geçen veya en yeni olanı seç
-                    g.question = g.question[0];
-                }
-            });
-            allGroups.push(...groups);
-            console.log(`✅ [${i+1}/${nlpGroups.length}] Gemini'den dönen grup sayısı:`, groups.length);
+            const translatedText = await translationService.translateText(text, 'en');
+            translatedEmbedding = await getEmbedding(translatedText);
         } catch (err) {
-            console.error(`❌ [${i+1}/${nlpGroups.length}] Gemini gruplama hatası:`, err);
-            // Hata olursa fallback ile gruplama
-            const fallback = fallbackGrouping(normalizedQuestions);
-            allGroups.push(...fallback);
+            console.error('Translation or embedding failed:', err);
         }
     }
-    // Son olarak, tüm grupları kategori ve otel bazında tekrar birleştir (gerekirse)
-    // (Burada istersen daha ileri birleştirme yapılabilir)
-    console.log('🎯 Toplam grup sayısı:', allGroups.length);
-    return allGroups;
+
+    // İki embedding'in ortalamasını al
+    const avgEmbedding = originalEmbedding.map((val, i) =>
+        (val + (translatedEmbedding[i] || 0)) / 2
+    );
+    return avgEmbedding;
 }
 
-function fallbackGrouping(normalizedQuestions) {
-    console.log('⚠️ Using fallback grouping for', normalizedQuestions.length, 'questions');
+// Embedding tabanlı soru gruplama
+async function groupSimilarQuestions(questions) {
+    console.log('🔍 Starting embedding-based groupSimilarQuestions with', questions.length, 'questions');
     
-    if (!normalizedQuestions || !Array.isArray(normalizedQuestions)) {
-        console.error('❌ Invalid input to fallbackGrouping:', normalizedQuestions);
+    if (!questions || questions.length === 0) {
         return [];
     }
 
-    if (normalizedQuestions.length === 0) {
-        console.log('⚠️ No questions to group');
+    try {
+        // Her soru için embedding al (çeviri destekli)
+        const questionsWithEmbeddings = await Promise.all(
+            questions.map(async (q) => {
+                const text = q.message || q.text || '';
+                if (!text.trim()) return null;
+                
+                try {
+                    const embedding = await getEmbeddingWithTranslation(text, q.language || 'unknown');
+                    return {
+                        ...q,
+                        text: text,
+                        embedding: embedding,
+                        count: 1,
+                        originalText: text,
+                        language: q.language || 'unknown',
+                        category: q.category || 'general',
+                        facility: q.facility || null,
+                        timestamp: q.timestamp || new Date().toISOString()
+                    };
+                } catch (error) {
+                    console.error(`❌ Failed to get embedding for: "${text}"`, error);
+                    return null;
+                }
+            })
+        );
+        
+        // Null değerleri filtrele
+        const validQuestions = questionsWithEmbeddings.filter(q => q !== null);
+        console.log(`✅ Generated embeddings for ${validQuestions.length} questions`);
+        
+        if (validQuestions.length === 0) {
         return [];
     }
 
-    // Create groups based on exact text, hotel, and category
-    const groups = {};
-    normalizedQuestions.forEach((q, index) => {
-        if (!q) {
-            console.log(`⚠️ Skipping invalid question at index ${index}`);
-            return;
-        }
-        const text = q.message || q.text || '';
-        if (!text.trim()) {
-            console.log(`⚠️ Skipping empty message at index ${index}`);
-            return;
-        }
-        // Kategori ve otel ile anahtar oluştur
-        const key = `${text.toLowerCase()}_${q.hotel || 'Unknown'}_${q.category || 'general'}`;
-        if (!groups[key]) {
-            groups[key] = {
-                question: text,
-                count: q.count || 1,
-                category: q.category || 'general',
-                facility: q.facility || null,
-                hotels: q.hotel ? [q.hotel] : [],
-                languages: [q.language || 'unknown'],
-                timestamp: q.timestamp || new Date().toISOString()
-            };
-        } else {
-            groups[key].count += q.count || 1;
-            if (q.hotel && !groups[key].hotels.includes(q.hotel)) {
-                groups[key].hotels.push(q.hotel);
+        // Embedding tabanlı gruplama
+        const groups = [];
+        const similarityThreshold = 0.7; // %70 benzerlik threshold'u (daha esnek)
+        
+        validQuestions.forEach((question, index) => {
+            let foundGroup = null;
+            
+            // Mevcut gruplarla karşılaştır
+            for (const group of groups) {
+                const groupEmbedding = group.embedding;
+                const similarity = cosineSimilarity(question.embedding, groupEmbedding);
+                
+                if (similarity >= similarityThreshold) {
+                    foundGroup = group;
+                    break;
+                }
             }
-            if (q.language && !groups[key].languages.includes(q.language)) {
-                groups[key].languages.push(q.language);
+            
+            if (foundGroup) {
+                // Mevcut gruba ekle
+                foundGroup.count += question.count || 1;
+                if (question.hotel && !foundGroup.hotels.includes(question.hotel)) {
+                    foundGroup.hotels.push(question.hotel);
+                }
+                if (question.language && !foundGroup.languages.includes(question.language)) {
+                    foundGroup.languages.push(question.language);
+                }
+                // En yeni timestamp ve metni temsilci olarak tut
+                const timestamp = question.timestamp || new Date().toISOString();
+                if (timestamp > foundGroup.timestamp) {
+                    foundGroup.timestamp = timestamp;
+                    foundGroup.question = question.text;
+                }
+            } else {
+                // Yeni grup oluştur
+                groups.push({
+                    question: question.text,
+                    count: question.count || 1,
+                    category: question.category || 'general',
+                    facility: question.facility || null,
+                    hotels: question.hotel ? [question.hotel] : [],
+                    languages: [question.language || 'unknown'],
+                    timestamp: question.timestamp || new Date().toISOString(),
+                    embedding: question.embedding // Referans için tut
+                });
             }
-            // Keep the most recent timestamp
-            const timestamp = q.timestamp || new Date().toISOString();
-            if (timestamp > groups[key].timestamp) {
-                groups[key].timestamp = timestamp;
-                groups[key].question = text;
-            }
-        }
-    });
-
-    // Convert to array and calculate percentages
-    const totalQuestions = normalizedQuestions.reduce((sum, q) => sum + (q.count || 1), 0);
-    
-    const result = Object.values(groups)
+        });
+        
+        // Yüzde hesapla ve sırala
+        const totalQuestions = validQuestions.reduce((sum, q) => sum + (q.count || 1), 0);
+        const result = groups
         .map(g => ({
             ...g,
             percentage: Math.round((g.count / totalQuestions) * 100),
-            hotels: g.hotels
-                .filter(hotel => ["Belvil", "Zeugma", "Ayscha"].includes(hotel))
+                hotels: g.hotels.filter(hotel => ["Belvil", "Zeugma", "Ayscha"].includes(hotel))
                 .filter((hotel, index, self) => self.indexOf(hotel) === index)
         }))
         .sort((a, b) => b.count - a.count || new Date(b.timestamp) - new Date(a.timestamp));
+        
+        console.log(`✅ Embedding-based grouping created ${result.length} groups`);
+        return result;
+        
+    } catch (error) {
+        console.error('❌ Embedding-based grouping failed:', error);
+        // Hata durumunda basit gruplama yap
+        return questions.map(q => ({
+            question: q.message || q.text || '',
+            count: 1,
+            category: q.category || 'general',
+            facility: q.facility || null,
+            hotels: q.hotel ? [q.hotel] : [],
+            languages: [q.language || 'unknown'],
+            timestamp: q.timestamp || new Date().toISOString(),
+            percentage: Math.round((1 / questions.length) * 100)
+        }));
+    }
+}
+
+// Basit metin temizleme fonksiyonu (embedding için)
+function cleanTextForEmbedding(text) {
+    if (!text) return '';
+    return text.trim();
+}
+
+// Embedding tabanlı fallback gruplama (basit)
+async function fallbackGrouping(questions) {
+    console.log('⚠️ Using embedding-based fallback grouping for', questions.length, 'questions');
+    
+    if (!questions || !Array.isArray(questions) || questions.length === 0) {
+        return [];
+    }
+    
+    // Basit gruplama: her soruyu ayrı grup olarak ele al
+    const result = questions.map(q => ({
+        question: q.question || q.message || q.text || '',
+        count: q.count || 1,
+        category: q.category || 'general',
+        facility: q.facility || null,
+        hotels: q.hotel ? [q.hotel] : [],
+        languages: [q.language || 'unknown'],
+        timestamp: q.timestamp || new Date().toISOString(),
+        percentage: Math.round((1 / questions.length) * 100)
+    }));
 
     console.log(`✅ Fallback grouping created ${result.length} groups`);
     return result;
@@ -506,7 +595,10 @@ function fallbackGrouping(normalizedQuestions) {
 function clearCache() {
     questionCache = null;
     lastCacheTime = null;
-    console.log('🧹 Analytics cache cleared');
+    embeddingCache.clear(); // Embedding cache'ini de temizle
+    topQuestionsCache = [];
+    topQuestionsLastUpdate = null;
+    console.log('🧹 Analytics and embedding cache cleared');
     // Event emit et
     analyticsEvents.emit('cacheCleared');
 }
@@ -518,21 +610,19 @@ function invalidateCache() {
 
 // Yeni bir gerçek soru geldiğinde topQuestions cache'ini güncelle
 function updateTopQuestionsCache(newQuestion) {
-    // Sadece gerçek sorular işlenir
     if (!newQuestion.isQuestion) return;
-    // Aynı grupta var mı kontrol et (kategori, otel, dil, metin benzerliği)
+    // Basit metin karşılaştırması
+    const questionText = cleanTextForEmbedding(newQuestion.message || newQuestion.text || '');
     const idx = topQuestionsCache.findIndex(q =>
         q.category === newQuestion.category &&
         q.hotel === newQuestion.hotel &&
         q.language === newQuestion.language &&
-        q.question.toLowerCase() === (newQuestion.message || newQuestion.text || '').toLowerCase()
+        cleanTextForEmbedding(q.question) === questionText
     );
     if (idx !== -1) {
-        // Grup zaten varsa sayaç artır
         topQuestionsCache[idx].count++;
-        topQuestionsCache[idx].percentage = 0; // Sonradan güncellenecek
+        topQuestionsCache[idx].percentage = 0;
     } else {
-        // Yeni grup ekle
         topQuestionsCache.push({
             question: newQuestion.message || newQuestion.text,
             count: 1,
@@ -543,15 +633,25 @@ function updateTopQuestionsCache(newQuestion) {
             percentage: 0
         });
     }
-    // Yüzdeleri güncelle
     const total = topQuestionsCache.reduce((sum, q) => sum + q.count, 0);
     topQuestionsCache.forEach(q => q.percentage = Math.round((q.count / total) * 100));
     topQuestionsLastUpdate = new Date().toISOString();
 }
 
-// Top Questions cache'ini dönen fonksiyon
-function getTopQuestionsCache() {
-    // En çok sorulandan başla, ilk 10'u döndür
+// Top Questions cache'ini dönen fonksiyon (artık async)
+async function getTopQuestionsCache() {
+    // Eğer cache boşsa, analiz fonksiyonunu çağır ve cache'i doldur
+    if (!topQuestionsCache || topQuestionsCache.length === 0) {
+        try {
+            const result = await analyzeQuestions(true); // force refresh
+            if (result && result.success && Array.isArray(result.questions)) {
+                topQuestionsCache = result.questions;
+                topQuestionsLastUpdate = result.lastUpdated;
+            }
+        } catch (err) {
+            console.error('❌ getTopQuestionsCache: analyzeQuestions failed:', err);
+        }
+    }
     return {
         success: true,
         questions: topQuestionsCache.sort((a, b) => b.count - a.count).slice(0, 10),

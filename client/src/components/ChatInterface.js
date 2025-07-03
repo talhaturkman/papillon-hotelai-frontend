@@ -191,17 +191,17 @@ function ChatInterface() {
     const updatedMessages = messages.filter(m => !m.offerSupport);
 
     if (accepted) {
-      const hotel = "Ayscha";
+      // Backend'den gelen otel bilgisini kullan
+      const lastSupportMsg = messages.find(m => m.offerSupport);
+      const hotel = lastSupportMsg && lastSupportMsg.hotel ? lastSupportMsg.hotel : "Ayscha";
       const whatsAppLink = `https://wa.me/905333044416`;
 
       // Open WhatsApp immediately in a new tab
       window.open(whatsAppLink, '_blank', 'noopener,noreferrer');
 
       const userMessage = { id: Date.now(), role: 'user', content: 'Yes, I want to connect to live support.', timestamp: new Date() };
-      
       const systemMessageContent = `Great! I am redirecting you to live support for the ${hotel} hotel.`;
       const systemMessage = { id: Date.now() + 1, role: 'assistant', content: systemMessageContent, timestamp: new Date() };
-      
       setMessages([...updatedMessages, userMessage, systemMessage]);
     } else {
       const userMessage = { id: Date.now(), role: 'user', content: 'No, thanks.', timestamp: new Date() };
@@ -210,6 +210,24 @@ function ChatInterface() {
       const systemMessage = { id: Date.now() + 1, role: 'assistant', content: systemMessageContent, timestamp: new Date() };
       setMessages([...updatedMessages, userMessage, systemMessage]);
     }
+  };
+
+  const handleHotelSelection = (selectedHotel) => {
+    // Kullanıcı otel seçince yeni bir canlı destek onayı mesajı başlat
+    const confirmMsg = {
+      id: Date.now(),
+      role: 'assistant',
+      content: detectedLanguage === 'tr' ? `Canlı desteğe bağlanmak istiyor musunuz?` :
+               detectedLanguage === 'en' ? `Do you want to connect to live support?` :
+               detectedLanguage === 'de' ? `Möchten Sie mit dem Live-Support verbunden werden?` :
+               detectedLanguage === 'ru' ? `Вы хотите подключиться к службе поддержки?` :
+               `Do you want to connect to live support?`,
+      offerSupport: true,
+      hotel: selectedHotel,
+      needHotelSelection: false,
+      timestamp: new Date()
+    };
+    setMessages(prev => [...prev, confirmMsg]);
   };
 
   useEffect(() => {
@@ -248,7 +266,14 @@ function ChatInterface() {
               <>
                 <div dangerouslySetInnerHTML={{ __html: formatMessage((message.content || '').replace('[DESTEK_TALEBI]', '')) }} />
                 {message.placesData && <MapComponent placesData={message.placesData} />}
-                {message.offerSupport && (
+                {message.offerSupport && message.needHotelSelection === true && (
+                  <div className="support-actions">
+                    <button onClick={() => handleHotelSelection('Belvil')} className="support-button support-button-yes">Belvil</button>
+                    <button onClick={() => handleHotelSelection('Zeugma')} className="support-button support-button-yes">Zeugma</button>
+                    <button onClick={() => handleHotelSelection('Ayscha')} className="support-button support-button-yes">Ayscha</button>
+                  </div>
+                )}
+                {message.offerSupport && message.needHotelSelection === false && (
                   <div className="support-actions">
                     <button onClick={() => handleSupportResponse(true)} className="support-button support-button-yes">&#x2713;</button>
                     <button onClick={() => handleSupportResponse(false)} className="support-button support-button-no">&#x2717;</button>

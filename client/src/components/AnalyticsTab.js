@@ -91,27 +91,26 @@ const AnalyticsTab = () => {
                         variant="contained"
                         color="primary"
                         startIcon={<RefreshIcon />}
-                        onClick={() => fetchQuestions(true)}
-                        sx={{ py: 0.5, px: 2 }}
-                    >
-                        ZORLA YENİLE
-                    </Button>
-                    <Button
-                        size="small"
-                        variant="contained"
-                        color="secondary"
-                        startIcon={<CachedIcon />}
                         onClick={async () => {
+                            setLoading(true);
+                            setError(null);
                             try {
-                                await axios.delete('/api/analytics/clear-cache');
-                                fetchQuestions(true);
+                                const response = await axios.post('/api/analytics/full-analyze');
+                                if (response.data.success) {
+                                    setQuestions(response.data.questions);
+                                    setLastUpdate(response.data.lastUpdated);
+                                } else {
+                                    throw new Error(response.data.error || 'Tam analiz başarısız');
+                                }
                             } catch (error) {
-                                console.error('Cache clear failed:', error);
+                                setError(error.message);
+                            } finally {
+                                setLoading(false);
                             }
                         }}
                         sx={{ py: 0.5, px: 2 }}
                     >
-                        CACHE TEMİZLE
+                        TAM ANALİZ
                     </Button>
                     <Button
                         size="small"
