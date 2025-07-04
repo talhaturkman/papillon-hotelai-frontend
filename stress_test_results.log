@@ -1,244 +1,400 @@
-{
-  "general": {
-    "scores": [
-      5.9,
-      5,
-      5.9,
-      6.5,
-      5.7,
-      3.6,
-      4.8,
-      5.7,
-      6.5,
-      3.6,
-      5.9,
-      5.6,
-      8.3,
-      7.7,
-      5,
-      5.9,
-      6.5,
-      5.2,
-      6.5,
-      4.4,
-      4.7,
-      5.3,
-      5,
-      5.9,
-      6.9
-    ],
-    "average": 5.6800000000000015
-  },
-  "daily": {
-    "scores": [
-      6.6,
-      4.7,
-      6.8,
-      5,
-      5.9,
-      3.8,
-      5.9,
-      6.5,
-      5.6,
-      3.8,
-      5,
-      5.4,
-      5.9,
-      4.7,
-      5.9,
-      5.9,
-      5.7,
-      4.7,
-      5,
-      5.7,
-      5.9,
-      3.8,
-      6.4,
-      5.9,
-      6.4
-    ],
-    "average": 5.476000000000002
-  },
-  "spa": {
-    "scores": [
-      6.2,
-      5.2,
-      5,
-      5,
-      5.5,
-      5.9,
-      5,
-      5.9,
-      6.6,
-      6.8,
-      5,
-      6.4,
-      6.5,
-      3.8,
-      5,
-      5.7,
-      5,
-      7.1,
-      5,
-      5.9,
-      5,
-      6.9,
-      5,
-      8.1,
-      6.6
-    ],
-    "average": 5.763999999999999
-  },
-  "complex": {
-    "scores": [
-      6.3,
-      6.9,
-      5.9,
-      6.3,
-      7.1,
-      6.4,
-      8.7,
-      5.5,
-      5.6,
-      3.2,
-      5.9,
-      6.8,
-      7,
-      5.8,
-      5.9,
-      8.9,
-      5.9,
-      4.4,
-      5,
-      4.4,
-      6.8,
-      5.2,
-      5.9,
-      6.4,
-      7.6
-    ],
-    "average": 6.152
-  },
-  "languageSpecific": {
-    "en": {
-      "scores": [
-        5.9,
-        5.7,
-        6.5,
-        8.3,
-        6.5,
-        4.7,
-        6.9,
-        6.6,
-        5.9,
-        5.6,
-        5.9,
-        5.7,
-        5.9,
-        6.4,
-        6.2,
-        5.5,
-        6.6,
-        6.5,
-        5,
-        5,
-        6.6,
-        6.3,
-        7.1,
-        5.6,
-        7,
-        5.9,
-        6.8,
-        7.6
-      ],
-      "average": 6.221428571428572
-    },
-    "de": {
-      "scores": [
-        5,
-        3.6,
-        3.6,
-        7.7,
-        5.2,
-        5.3,
-        4.7,
-        3.8,
-        3.8,
-        4.7,
-        4.7,
-        3.8,
-        5.2,
-        5.9,
-        6.8,
-        3.8,
-        7.1,
-        6.9,
-        6.9,
-        6.4,
-        3.2,
-        5.8,
-        4.4,
-        5.2
-      ],
-      "average": 5.145833333333334
-    },
-    "tr": {
-      "scores": [
-        5.9,
-        4.8,
-        5.9,
-        5,
-        6.5,
-        5,
-        6.8,
-        5.9,
-        5,
-        5.9,
-        5,
-        6.4,
-        5,
-        5,
-        5,
-        5,
-        5,
-        5,
-        5.9,
-        8.7,
-        5.9,
-        5.9,
-        5,
-        5.9
-      ],
-      "average": 5.641666666666667
-    },
-    "ru": {
-      "scores": [
-        6.5,
-        5.7,
-        5.6,
-        5.9,
-        4.4,
-        5.9,
-        5,
-        6.5,
-        5.4,
-        5.9,
-        5.7,
-        5.9,
-        5,
-        5.9,
-        6.4,
-        5.7,
-        5.9,
-        8.1,
-        6.3,
-        5.5,
-        6.8,
-        8.9,
-        4.4,
-        6.4
-      ],
-      "average": 5.987500000000001
-    }
-  }
-}
+[Test 1/100] [Zeugma/ru] SUCCESS (22.47s)
+❓ Question: Какое время заезда и выезда, и могу ли я запросить поздний выезд?
+�� Answer: У меня нет подробной информации по этой теме. 
+---
+[Test 2/100] [Belvil/de] SUCCESS (7.11s)
+❓ Question: Gibt es ein Spa? Nennen Sie drei angebotene Dienstleistungen und sagen Sie mir, ob das türkische Bad kostenlos ist.
+�� Answer: Ja, es gibt ein Spa namens Reborn Spa & Wellness. Hier werden drei Dienstleistungen angeboten:  1. Massagen 2. Haut- und Körperpflege 3. Kryokabine  Die Nutzung des Türkischen Bades ist kostenlos.  Bei Interesse stelle ich Ihnen gerne weitere Informationen aus unserem SPA-Katalog zur Verfügung. 
+---
+[Test 3/100] [Belvil/tr] SUCCESS (16.33s)
+❓ Question: Sakin ve dinlendirici bir tatil için hangi otel daha iyi, Zeugma mı Ayscha mı? Atmosferi tarif edin.
+�� Answer: Papillon Zeugma Relaxury ve Papillon Ayscha'nın her ikisi de sakin ve dinlendirici tatiller için uygun olsa da, sundukları atmosferler farklıdır.  Papillon Zeugma Relaxury, adından da anlaşılacağı gibi, lüks ve rahatlamaya odaklanır. Daha şık ve sofistike bir atmosfere sahip olup, modern olanaklarla çevrili huzurlu bir ortamda dinlenmek isteyen konuklar için idealdir.  Papillon Ayscha'nın atmosferi hakkında detaylı bir bilgiye sahip değilim.
+---
+[Test 4/100] [Zeugma/de] SUCCESS (20.77s)
+❓ Question: Wie komme ich vom Flughafen Antalya zum Hotel? Bieten Sie einen Shuttle an?
+�� Answer: Ich habe keine detaillierten Informationen zu diesem Thema. 
+---
+[Test 5/100] [Belvil/tr] SUCCESS (7.06s)
+❓ Question: Rezervasyonumla ilgili bir sorun hakkında bir insan temsilciyle konuşmam gerekiyor.
+�� Answer: Canlı desteğe bağlanmak istiyor musunuz?
+---
+[Test 6/100] [Zeugma/en] SUCCESS (8.00s)
+❓ Question: What activities are available for children aged 4-8 versus teenagers?
+�� Answer: For children in the 4-8 age group at Papillon Zeugma, the Papy Kids Club offers activities such as pool games, boccia, water polo, dart, football, table tennis, olympics, Lego, Playstation, Nerf, mini bowling, mini basketball, bubble game, art workshop, painting, canvas art, wood workshop, keychain making, origami, jewelry making, toy making, dreamcatcher, and art therapy. Sports activities include tennis, swimming, and football. Theme days include Cookie Day, Native American Day, Pirate Day, and Ghost Day. There is also the Papy Kids Sports Academy which offers football, swimming and tennis lessons. For teenagers, the information provided does not list specific activities for teenagers, other than a Teen's light peeling&foam massage, Teen's sport massage with eucaliptus oil and Aromassage for Teens at the SPA.
+---
+[Test 7/100] [Zeugma/de] SUCCESS (18.70s)
+❓ Question: Welches Hotel ist besser für einen ruhigen, erholsamen Urlaub, Zeugma oder Ayscha? Beschreiben Sie die Atmosphäre.
+�� Answer: Ich habe keine detaillierten Informationen zu diesem Thema. 
+---
+[Test 8/100] [Ayscha/en] SUCCESS (6.47s)
+❓ Question: I need to speak to a human representative about a problem with my booking.
+�� Answer: Do you want to connect to live support?
+---
+[Test 9/100] [Zeugma/ru] SUCCESS (9.28s)
+❓ Question: Перечислите все бары. Какие из них открыты 24/7?
+�� Answer: Бары в Papillon Zeugma Relaxury:  * Terrace Bar (работает круглосуточно) * Beach Bar (09:00 - 02:00) * Disco Bar (23:00 - 01:00) * Pool Bar (09:00-19:00) * Cafe Wien / Bar (09:00 - 00:00) * Garden Pool Bar (09:00 - 00:00) * Beer House (13:00-21:00) * Pasha Lounge (13:00-00:00) * Asma (24 часа) * Macrina Patisserie (11:00 - 19:00) * PA&CO (07:00 - 18:00) * Aqua Bar (10:00-17:30)  The Terrace Bar и Asma работают круглосуточно часы работы.  Согласно сегодняшнему расписанию (3 июля 2025 г.):  * Лобби-бар открыт круглосуточно * Мартини-бар открыт круглосуточно * Винный погреб Ayscha открыт круглосуточно  
+---
+[Test 10/100] [Zeugma/en] SUCCESS (6.36s)
+❓ Question: I need to speak to a human representative about a problem with my booking.
+�� Answer: Do you want to connect to live support?
+---
+[Test 11/100] [Ayscha/en] SUCCESS (7.06s)
+❓ Question: I need to speak to a human representative about a problem with my booking.
+�� Answer: Do you want to connect to live support?
+---
+[Test 12/100] [Zeugma/en] SUCCESS (6.62s)
+❓ Question: List all the bars. Which ones are open 24/7?
+�� Answer: The bars are: Terrace Bar, Beach Bar, Disco, Pool Bar, Cafe Wien / Bar, Garden Pool Bar, Beer House, Pasha Lounge, Asma, Macrina Patisserie, PA&CO, and Aqua Bar.  According to today's (July 3, 2025) schedule, the Martini Lounge and Lobby Bar are open 24 hours.
+---
+[Test 13/100] [Ayscha/de] SUCCESS (7.16s)
+❓ Question: Ich bin allergisch gegen Nüsse. Wie geht das Hotel mit Lebensmittelallergien im Hauptrestaurant um?
+�� Answer: Auf Anfrage können in allen unseren Restaurants spezielle Essenswünsche für Gäste mit bestimmten Allergien nach vorheriger Angabe zubereitet werden.
+---
+[Test 14/100] [Zeugma/tr] SUCCESS (7.63s)
+❓ Question: Otel odalarına evcil hayvan kabul ediliyor mu?
+�� Answer: Papillon Zeugma Relaxury'de evcil hayvanlara izin verilmemektedir.
+---
+[Test 15/100] [Zeugma/en] SUCCESS (17.98s)
+❓ Question: What are the operating hours for the main swimming pool and the kids' pool?
+�� Answer: I don't have the specific operating hours for the main swimming pool and the kids' pool. However, both are outdoor swimming pools.
+---
+[Test 16/100] [Ayscha/tr] SUCCESS (7.82s)
+❓ Question: Tüm à la carte restoranlar hakkında bilgi verin. Mutfak türleri nedir ve ekstra ücretli midir?
+�� Answer: Papillon Ayscha'daki a la carte restoranlar hakkında bilgi şöyle:  * **Surf & Turf:** Steak & Seafood. Kişi başı 50 € ek ücret alınmaktadır. * **Safran:** Modern Türk mutfağı. Kişi başı 5 € ek ücret alınmaktadır. * **Mikado:** Uzakdoğu mutfağı. Kişi başı 5 € ek ücret alınmaktadır. Ayrıca seçilen set menüye bağlı olarak ek ücrete tabi Teppanyaki de bulunmaktadır. * **Coral:** Balık & Seafood. Kişi başı 5 € ek ücret alınmaktadır. (15.04-31.10 tarihleri arasında açıktır) * **Viccolo:** İtalyan mutfağı. Kişi başı 5 € ek ücret alınmaktadır. (01.05-31.10 tarihleri arasında açıktır) * **Taco:** Meksika mutfağı. Kişi başı 5 € ek ücret alınmaktadır. (15.05-31.10 tarihleri arasında açıktır)
+---
+[Test 17/100] [Ayscha/en] SUCCESS (19.58s)
+❓ Question: Is the Wi-Fi free in the rooms and on the beach? How is the speed?
+�� Answer: Wi-Fi is free at Papillon Ayscha. I don't have information about the speed. 
+---
+[Test 18/100] [Zeugma/en] SUCCESS (18.42s)
+❓ Question: What are the operating hours for the main swimming pool and the kids' pool?
+�� Answer: I do not have the operating hours for the main swimming pool and the kids' pool. However, I can tell you that there are umbrellas, sunbeds, and beach towels available at the pool. 
+---
+[Test 19/100] [Ayscha/de] SUCCESS (20.73s)
+❓ Question: Ist das WLAN in den Zimmern und am Strand kostenlos? Wie ist die Geschwindigkeit?
+�� Answer: Ich habe keine detaillierten Informationen zu diesem Thema. 
+---
+[Test 20/100] [Zeugma/tr] SUCCESS (20.50s)
+❓ Question: Antalya havalimanından otele nasıl giderim? Servisiniz var mı?
+�� Answer: Otelimiz Antalya Havaalanına 35 km uzaklıktadır. Havaalanı transfer hizmetimiz hakkında bilgi almak veya rezervasyon yapmak için lütfen otelimizle doğrudan iletişime geçin.
+---
+[Test 21/100] [Belvil/en] SUCCESS (18.16s)
+❓ Question: What are the check-in and check-out times, and can I request a late check-out?
+�� Answer: I don't have detailed information on check-in and check-out times.
+---
+[Test 22/100] [Zeugma/tr] SUCCESS (17.93s)
+❓ Question: Sakin ve dinlendirici bir tatil için hangi otel daha iyi, Zeugma mı Ayscha mı? Atmosferi tarif edin.
+�� Answer: Papillon Zeugma Relaxury ve Papillon Ayscha arasındaki tercihinizde size yardımcı olabilirim. Her iki otel de Papillon zincirine ait olup, konforlu ve kaliteli bir tatil deneyimi sunmayı hedefler. Ancak, sakin ve dinlendirici bir tatil arayışınızda atmosferleri ve sundukları olanaklar açısından farklılıklar bulunmaktadır.  **Papillon Zeugma Relaxury:**  *   **Atmosfer:** Zeugma, daha sofistike ve lüks bir atmosfere sahiptir. "Relaxury" konseptiyle, rahatlık ve lüksün bir arada sunulduğu bir deneyim vaat eder. Otelde şık tasarım detayları, geniş ve bakımlı bahçeler, özel havuzlar ve rahatlatıcı spa olanakları bulunmaktadır. *   **Hedef Kitle:** Daha çok çiftler ve özel bir kaçamak yapmak isteyenler için uygundur. Çocuklu aileler için de uygun olmakla birlikte, Zeugma'nın genel atmosferi daha sakin ve yetişkin odaklıdır.  **Papillon Ayscha:**  *   **Atmosfer:** Ayscha, daha canlı ve enerjik bir atmosfere sahiptir. Özellikle çocuklu aileler için tasarlanmış olanaklar sunar. Otelde büyük bir aquapark, çocuk kulübü ve çeşitli aktiviteler bulunmaktadır. Ayscha, eğlence ve aktivite odaklı bir tatil arayanlar için idealdir. *   **Hedef Kitle:** Ayscha, özellikle çocuklu aileler için mükemmel bir seçenektir. Geniş aile odaları, çocuklara özel menüler ve aktivitelerle dolu bir tatil sunar.  **Karar Verirken:**  *   Eğer önceliğiniz sakinlik, lüks ve rahatlama ise, Papillon Zeugma Relaxury sizin için daha uygun olabilir. *   Eğer çocuklarınızla birlikte eğlenceli ve hareketli bir tatil geçirmek istiyorsanız, Papillon Ayscha daha iyi bir seçenek olacaktır.  Umarım bu bilgiler karar vermenize yardımcı olur.
+---
+[Test 23/100] [Zeugma/en] SUCCESS (6.39s)
+❓ Question: I need to speak to a human representative about a problem with my booking.
+�� Answer: Do you want to connect to live support?
+---
+[Test 24/100] [Ayscha/de] SUCCESS (18.17s)
+❓ Question: Welches Hotel ist besser für einen ruhigen, erholsamen Urlaub, Zeugma oder Ayscha? Beschreiben Sie die Atmosphäre.
+�� Answer: Ich habe keine detaillierten Informationen zu diesem Thema.
+---
+[Test 25/100] [Zeugma/tr] SUCCESS (7.15s)
+❓ Question: Fitness merkezi var mı ve çalışma saatleri nedir?
+�� Answer: Evet, bir fitness salonu var. 15 yaş ve üzeri için her gün 07:00 - 19:00 saatleri arasında açıktır.
+---
+[Test 26/100] [Ayscha/en] SUCCESS (19.68s)
+❓ Question: What are the check-in and check-out times, and can I request a late check-out?
+�� Answer: I don't have the specific check-in and check-out times. However, express check-in and late check-out service is available when possible for King Suite, Presidential & Deluxe Villas guests. Also, there is a rest area for early check-in/late check-out (Nautilus Lounge).
+---
+[Test 27/100] [Belvil/en] SUCCESS (6.39s)
+❓ Question: What kind of evening entertainment or shows can I expect?
+�� Answer: The Papillon Belvil offers the following evening entertainment:  *   Professional Dance Shows *   Live Music *   Acrobatics Shows *   Musical Shows *   Theme Parties *   Festivals
+---
+[Test 28/100] [Zeugma/en] SUCCESS (6.43s)
+❓ Question: I need to speak to a human representative about a problem with my booking.
+�� Answer: Do you want to connect to live support?
+---
+[Test 29/100] [Zeugma/tr] SUCCESS (4.29s)
+❓ Question: Antalya havalimanından otele nasıl giderim? Servisiniz var mı?
+�� Answer: Konumunuzu bulmam için izin vermeniz gerekiyor. İzni verdikten sonra tekrar deneyebilirsiniz.
+---
+[Test 30/100] [Zeugma/tr] SUCCESS (19.18s)
+❓ Question: Antalya havalimanından otele nasıl giderim? Servisiniz var mı?
+�� Answer: Antalya Havalimanı'ndan otelimize ulaşım hakkında bilgi vermek isterim. Otelimiz Antalya Havaalanı'na 35 km uzaklıktadır. Transfer hizmetimiz hakkında detaylı bilgi almak ve rezervasyon yaptırmak için lütfen bizimle iletişime geçin.
+---
+[Test 31/100] [Zeugma/tr] SUCCESS (7.20s)
+❓ Question: Otel odalarına evcil hayvan kabul ediliyor mu?
+�� Answer: Papillon Zeugma Relaxury'de evcil hayvanlara izin verilmemektedir.
+---
+[Test 32/100] [Zeugma/ru] SUCCESS (7.59s)
+❓ Question: Есть ли спа? Перечислите три предлагаемые услуги и скажите, бесплатная ли турецкая баня.
+�� Answer: Да, есть спа-центр Reborn SPA & Wellness, который открыт каждый день с 09:00 до 19:30. Вот три предлагаемые ими услуги:  1. Процедура для тела «ENDOSPHERES» для лечения целлюлита 2. Традиционный хамам с пилингом и мытьем пеной 3. Местный массаж  Пользование турецкой баней бесплатно.  Если вам интересно, я могу предоставить более подробную информацию из нашего каталога СПА.
+---
+[Test 33/100] [Zeugma/tr] SUCCESS (7.42s)
+❓ Question: Otel odalarına evcil hayvan kabul ediliyor mu?
+�� Answer: Papillon Zeugma Relaxury'de evcil hayvanlara izin verilmemektedir.
+---
+[Test 34/100] [Ayscha/de] SUCCESS (7.27s)
+❓ Question: Welche Art von Abendunterhaltung oder Shows kann ich erwarten?
+�� Answer: Das Abendprogramm umfasst Klaviermusik von 19:00–21:00 Uhr, Pekinger Akrobaten von 21:15–22:00 Uhr sowie Livemusik und Disco von 22:00–23:30 Uhr bzw. 22:00–01:00 Uhr.
+---
+[Test 35/100] [Belvil/tr] SUCCESS (16.66s)
+❓ Question: Odalarda ve plajda Wi-Fi ücretsiz mi? Hızı nasıl?
+�� Answer: Evet, Wi-Fi ücretsizdir.
+---
+[Test 36/100] [Ayscha/en] SUCCESS (7.49s)
+❓ Question: What activities are available for children aged 4-8 versus teenagers?
+�� Answer: For children enrolled in the Papy Kids Sports Academy (ages 4-7 and 8-12), there are football, swimming, and tennis lessons.  For teenagers, there is a Young Room in the Papy Kids Club. The Fitness Center is available for ages 15+. Other activities that may appeal to teenagers include:  *   Tennis and basketball courts *   Beach Volleyball *   Water ball *   Various Tournaments *   Ping pong *   Pinball 
+---
+[Test 37/100] [Ayscha/ru] SUCCESS (7.48s)
+❓ Question: У меня аллергия на орехи. Как отель решает вопросы с пищевой аллергией в главном ресторане?
+�� Answer: По запросу во всех наших ресторанах могут быть приготовлены специальные блюда для гостей с определенными аллергиями, если они укажут это заранее.
+---
+[Test 38/100] [Ayscha/ru] SUCCESS (7.29s)
+❓ Question: Есть ли фитнес-центр и какие у него часы работы?
+�� Answer: Да, фитнес-центр есть. Часы работы: ежедневно с 07:00 до 19:00 для лиц старше 15 лет.
+---
+[Test 39/100] [Belvil/en] SUCCESS (5.68s)
+❓ Question: I am allergic to nuts. How does the hotel handle food allergies in the main restaurant?
+�� Answer: For guests with special allergies: Upon request, the food they want is prepared in all our restaurants, if they specify in advance.
+---
+[Test 40/100] [Ayscha/tr] SUCCESS (16.56s)
+❓ Question: Ana yüzme havuzu ve çocuk havuzunun çalışma saatleri nedir?
+�� Answer: Açık ana havuz ve çocuk havuzu 15 Kasım'a kadar ve 15 Mart'tan itibaren ısıtılmaktadır.
+---
+[Test 41/100] [Zeugma/ru] SUCCESS (7.30s)
+❓ Question: Есть ли фитнес-центр и какие у него часы работы?
+�� Answer: Да, в Papillon Zeugma Relaxury есть фитнес-центр. Он открыт каждый день с 07:00 до 19:00 для гостей от 15 лет и старше.
+---
+[Test 42/100] [Zeugma/tr] SUCCESS (19.20s)
+❓ Question: Odalarda ve plajda Wi-Fi ücretsiz mi? Hızı nasıl?
+�� Answer: Evet, odalarda ve plajda Wi-Fi ücretsizdir. Hızı hakkında bir bilgiye sahip değilim.
+---
+[Test 43/100] [Ayscha/de] SUCCESS (7.59s)
+❓ Question: Erzählen Sie mir von allen À-la-carte-Restaurants. Welche Art von Küche bieten sie an und kosten sie extra?
+�� Answer: Hier finden Sie Informationen zu den À-la-carte-Restaurants im Papillon Ayscha:  * **Surf & Turf**: Steaks und Meeresfrüchte. 50 € pro Person. * **Safran**: Moderne türkische Küche. 5 € pro Person. * **Mikado**: Fernöstliche Küche. 5 € pro Person. * **Mikado (Teppanyaki): Teppanyaki-Küche. Im Restaurant Mikado. Je nach gewähltem Menü fällt ein Aufpreis an. * **Coral**: Fisch und Meeresfrüchte. 5 € pro Person. (Verfügbar vom 15.04. bis 31.10.) * **Viccolo**: Italienische Küche. 5 € pro Person. (Verfügbar vom 01.05. bis 31.10.) * **Taco**: Mexikanische Küche. 5 € pro Person. (Verfügbar 15.05-31.10)
+---
+[Test 44/100] [Zeugma/tr] SUCCESS (7.49s)
+❓ Question: Tüm à la carte restoranlar hakkında bilgi verin. Mutfak türleri nedir ve ekstra ücretli midir?
+�� Answer: Papillon Zeugma Relaxury'deki alakart restoranlar hakkında bilgiler:  * **Asma:** Modern Türk Mutfağı, 5 € * **Farfalle:** İtalyan Mutfağı, 5 € * **Haru:** Uzak Doğu Mutfağı, 5 € * **Mey'Hane:** Balık ve Deniz Ürünleri, 5 €
+---
+[Test 45/100] [Ayscha/ru] SUCCESS (7.56s)
+❓ Question: Расскажите о пляже. Он песчаный? Полотенца и шезлонги бесплатные?
+�� Answer: Да, пляж песчаный, протяженностью 150 метров. Пляжные полотенца и шезлонги бесплатные.
+---
+[Test 46/100] [Belvil/en] SUCCESS (17.71s)
+❓ Question: Which hotel is better for a quiet, relaxing holiday, Zeugma or Ayscha? Describe the atmosphere.
+�� Answer: Based on the information provided, Papillon Zeugma Relaxury is likely the better choice for a quiet, relaxing holiday. Here's why:  *   **Papillon Zeugma Relaxury:** The name itself suggests relaxation. The concept focuses on "Relaxury," indicating an emphasis on both luxury and relaxation.  I don't have specific information about the atmosphere at Papillon Ayscha. 
+---
+[Test 47/100] [Belvil/tr] SUCCESS (7.09s)
+❓ Question: Tüm barları listeleyin. Hangileri 7/24 açık?
+�� Answer: Papillon Belvil'deki barlar şunlardır:  * Mirage Bar * Aphrodite Lobby Bar * Beach Bar * Aqua Bar * Bloom Lounge * Disco Bar * Blue Pool Bar * Amphitheater Bar * Food Court Bar * Belle Vue Bar * Mirage Patisserie * PA & CO Coffee House  Bloom Lounge ve Wine Cellar 7/24 açıktır.
+---
+[Test 48/100] [Belvil/ru] SUCCESS (18.20s)
+❓ Question: Как добраться до отеля из аэропорта Анталии? Предлагаете ли вы трансфер?
+�� Answer: У меня нет подробной информации по этой теме. 
+---
+[Test 49/100] [Belvil/de] SUCCESS (6.44s)
+❓ Question: Gibt es ein Fitnesscenter und was sind die Öffnungszeiten?
+�� Answer: Ja, es gibt ein Fitnesscenter. Es ist täglich von 07:00 bis 19:00 Uhr für Gäste ab 15 Jahren geöffnet.
+---
+[Test 50/100] [Ayscha/de] SUCCESS (17.47s)
+❓ Question: Welches Hotel ist besser für einen ruhigen, erholsamen Urlaub, Zeugma oder Ayscha? Beschreiben Sie die Atmosphäre.
+�� Answer: Ich habe keine detaillierten Informationen zu diesem Thema.
+---
+[Test 51/100] [Zeugma/tr] SUCCESS (18.24s)
+❓ Question: Odalarda ve plajda Wi-Fi ücretsiz mi? Hızı nasıl?
+�� Answer: Evet, hem odalarda hem de plajda Wi-Fi ücretsizdir.
+---
+[Test 52/100] [Ayscha/en] SUCCESS (7.32s)
+❓ Question: What activities are available for children aged 4-8 versus teenagers?
+�� Answer: For children enrolled in the Papy Kids Sports Academy (ages 4-7 and 8-12), there are football, swimming and tennis lessons.  For teenagers, there is a Young Room in the Papy Kids Club. The Fitness Center is available for ages 15+. There are also activities such as tennis, basketball, beach volleyball, water ball, pool games, air rifle, various tournaments, ping pong, and badminton.
+---
+[Test 53/100] [Belvil/tr] SUCCESS (7.11s)
+❓ Question: Ne tür akşam eğlenceleri veya şovlar bekleyebilirim?
+�� Answer: Papillon Belvil'de akşam eğlenceleri şu şekildedir: Profesyonel Dans Gösterileri, Canlı Müzik, Akrobasi Gösterileri, Müzikal Gösteriler, Tema Partileri ve Festivaller.
+---
+[Test 54/100] [Ayscha/tr] SUCCESS (7.49s)
+❓ Question: Otel odalarına evcil hayvan kabul ediliyor mu?
+�� Answer: Evcil hayvanlara izin verilmez.
+---
+[Test 55/100] [Belvil/en] SUCCESS (17.40s)
+❓ Question: How do I get to the hotel from Antalya airport? Do you offer a shuttle?
+�� Answer: The Papillon Belvil is 35 km from Antalya Airport. I don't have information about a shuttle service. 
+---
+[Test 56/100] [Belvil/en] SUCCESS (17.44s)
+❓ Question: How do I get to the hotel from Antalya airport? Do you offer a shuttle?
+�� Answer: I don't have detailed information on transportation or shuttle services. However, I can tell you that Antalya Airport is 35 km away from Papillon Belvil. 
+---
+[Test 57/100] [Belvil/tr] SUCCESS (15.75s)
+❓ Question: Ana yüzme havuzu ve çocuk havuzunun çalışma saatleri nedir?
+�� Answer: Bilgi metnine göre havuzların çalışma saatleri belirtilmemiştir.
+---
+[Test 58/100] [Zeugma/en] SUCCESS (16.17s)
+❓ Question: Is the Wi-Fi free in the rooms and on the beach? How is the speed?
+�� Answer: Wi-Fi is free. The text does not mention the speed of the internet.
+---
+[Test 59/100] [Belvil/de] SUCCESS (17.82s)
+❓ Question: Wie sind die Check-in- und Check-out-Zeiten und kann ich einen späten Check-out beantragen?
+�� Answer: Ich habe keine detaillierten Informationen zu diesem Thema. 
+---
+[Test 60/100] [Zeugma/de] SUCCESS (7.02s)
+❓ Question: Gibt es ein Fitnesscenter und was sind die Öffnungszeiten?
+�� Answer: Ja, es gibt ein Fitnesscenter. Die Öffnungszeiten sind täglich von 07:00 bis 19:00 Uhr (ab 15 Jahren).
+---
+[Test 61/100] [Belvil/en] SUCCESS (6.78s)
+❓ Question: Tell me about all the à la carte restaurants. What type of cuisine are they and do they have an extra charge?
+�� Answer: Here is information about the à la carte restaurants at Papillon Belvil:  *   **Bloom (Steak & Wine):** Serves steak and wine. There is an extra charge of 35 € per person. Extra products selected from the menu will be charged at the daily market price. *   **Bloom (Mediterranean):** Serves Mediterranean cuisine. There is an extra charge of 5 € per person. *   **Mirage:** Serves Italian cuisine. There is an extra charge of 5 € per person. *   **Kanji:** Serves Far East cuisine. There is an extra charge of 5 € per person. *   **Dolce Vita:** Serves fish and seafood. There is an extra charge of 5 € per person.  Reservations are required at all à la carte restaurants, even for guests in King Suite accommodations. A'la Carte use is free for children aged 0-6.  Would you like more information about any of the restaurants?
+---
+[Test 62/100] [Zeugma/en] SUCCESS (20.18s)
+❓ Question: What are the check-in and check-out times, and can I request a late check-out?
+�� Answer: I don't have detailed information on check-in and check-out times. You can inquire about this when you arrive at the receptions desk. Information about early arrival and late departure is available; it is subject to an extra charge.
+---
+[Test 63/100] [Zeugma/en] SUCCESS (7.16s)
+❓ Question: What kind of evening entertainment or shows can I expect?
+�� Answer: According to today's schedule (July 3, 2025), you can expect the Beijing Acrobats show from 21:15-22:00 and live music from 22:00-23:30 at Taco Snack. There will also be a Papy Disco from 20:30-21:00.
+---
+[Test 64/100] [Belvil/ru] SUCCESS (6.92s)
+❓ Question: Расскажите о пляже. Он песчаный? Полотенца и шезлонги бесплатные?
+�� Answer: Да, пляж песчаный, протяженностью 250 метров. Пляжные полотенца и шезлонги бесплатные.
+---
+[Test 65/100] [Belvil/en] SUCCESS (5.64s)
+❓ Question: I am allergic to nuts. How does the hotel handle food allergies in the main restaurant?
+�� Answer: For guests with special allergies: Upon request, the food they want is prepared in all our restaurants, if they specify in advance.
+---
+[Test 66/100] [Ayscha/en] SUCCESS (20.27s)
+❓ Question: What are the check-in and check-out times, and can I request a late check-out?
+�� Answer: I don't have detailed information on check-in and check-out times. However, I can tell you that express check-in and late check-out are available when possible for King Suite, Presidential Villa, and Deluxe Villa guests.
+---
+[Test 67/100] [Zeugma/en] SUCCESS (18.15s)
+❓ Question: What are the operating hours for the main swimming pool and the kids' pool?
+�� Answer: I don't have the operating hours for the main swimming pool and the kids' pool.
+---
+[Test 68/100] [Ayscha/de] SUCCESS (7.80s)
+❓ Question: Erzählen Sie mir von allen À-la-carte-Restaurants. Welche Art von Küche bieten sie an und kosten sie extra?
+�� Answer: Die À-la-carte-Restaurants im Papillon Ayscha sind:  * **Surf & Turf:** Steak & Meeresfrüchte. Preis: 50 € pro Person. * **Safran:** Moderne türkische Küche. Preis: 5 € pro Person. * **Mikado:** Fernöstliche Küche. Preis: 5 € pro Person. Im Mikado gibt es auch einen Teppanyaki-Bereich, dessen Kosten je nach gewähltem Menü anfallen. * **Coral:** Fisch & Meeresfrüchte. Preis: 5 € pro Person. (Geöffnet vom 15.04. bis 31.10.) * **Viccolo:** Italienische Küche. Preis: 5 € pro Person. (Geöffnet vom 01.05. bis 31.10.) * **Taco:** Mexikanische Küche. Preis: 5 € pro Person. (Geöffnet vom 15.05. bis 31.10.)
+---
+[Test 69/100] [Zeugma/ru] SUCCESS (8.04s)
+❓ Question: Какие развлечения доступны для детей в возрасте 4-8 лет по сравнению с подростками?
+�� Answer: В каком отеле вы остановились?
+---
+[Test 70/100] [Zeugma/tr] SUCCESS (19.01s)
+❓ Question: Odalarda ve plajda Wi-Fi ücretsiz mi? Hızı nasıl?
+�� Answer: Evet, odalarda ve plajda Wi-Fi ücretsizdir.
+---
+[Test 71/100] [Ayscha/tr] SUCCESS (7.13s)
+❓ Question: Plaj hakkında bilgi verin. Kumsal mı? Havlu ve şezlong ücretsiz mi?
+�� Answer: Plajın kumluk yapısı olup, plaj havlusu ve şezlong ücretsizdir.
+---
+[Test 72/100] [Ayscha/en] SUCCESS (6.97s)
+❓ Question: Are pets allowed in the hotel rooms?
+�� Answer: Pets are not allowed. 
+---
+[Test 73/100] [Ayscha/tr] SUCCESS (7.40s)
+❓ Question: Rezervasyonumla ilgili bir sorun hakkında bir insan temsilciyle konuşmam gerekiyor.
+�� Answer: Canlı desteğe bağlanmak istiyor musunuz?
+---
+[Test 74/100] [Zeugma/de] SUCCESS (20.41s)
+❓ Question: Ist das WLAN in den Zimmern und am Strand kostenlos? Wie ist die Geschwindigkeit?
+�� Answer: Ich habe keine detaillierten Informationen zu diesem Thema. 
+---
+[Test 75/100] [Zeugma/en] SUCCESS (16.36s)
+❓ Question: Which hotel is better for a quiet, relaxing holiday, Zeugma or Ayscha? Describe the atmosphere.
+�� Answer: I don't have the information to compare the atmosphere of Zeugma and Ayscha hotels for a quiet, relaxing holiday. 
+---
+[Test 76/100] [Belvil/de] SUCCESS (7.42s)
+❓ Question: Welche Art von Abendunterhaltung oder Shows kann ich erwarten?
+�� Answer: Das Papillon Belvil bietet folgende Abendunterhaltung:  * Professionelle Tanzshows * Live-Musik * Akrobatikshows * Musikshows * Themenpartys * Festivals
+---
+[Test 77/100] [Zeugma/ru] SUCCESS (7.35s)
+❓ Question: Есть ли фитнес-центр и какие у него часы работы?
+�� Answer: Да, в Papillon Zeugma Relaxury есть фитнес-центр. Он открыт каждый день с 07:00 до 19:00 для гостей от 15 лет и старше.
+---
+[Test 78/100] [Ayscha/ru] SUCCESS (18.01s)
+❓ Question: Какой отель лучше подходит для тихого, спокойного отдыха, Zeugma или Ayscha? Опишите атмосферу.
+�� Answer: У меня нет подробной информации по этой теме. 
+---
+[Test 79/100] [Zeugma/ru] SUCCESS (7.55s)
+❓ Question: Какие вечерние развлечения или шоу я могу ожидать?
+�� Answer: Согласно сегодняшнему расписанию (3 июля 2025 г.), вы можете ожидать шоу Beijing Acrobats с 21:15 до 22:00 и живую музыку с 22:00 до 23:30 в Taco Snack. Также будет Papy Disco с 20:30 до 21:00.
+---
+[Test 80/100] [Zeugma/de] SUCCESS (7.70s)
+❓ Question: Erzählen Sie mir von allen À-la-carte-Restaurants. Welche Art von Küche bieten sie an und kosten sie extra?
+�� Answer: Hier finden Sie Informationen zu den À-la-carte-Restaurants im Papillon Zeugma Relaxury:  * **Asma:** Bietet moderne türkische Küche und befindet sich am Gartenpool. Der Aufpreis beträgt 5 €. * **Farfalle:** Bietet italienische Küche und befindet sich am Gartenpool. Der Aufpreis beträgt 5 €. * **Haru:** Bietet fernöstliche Küche und befindet sich am Gartenpool. Der Aufpreis beträgt 5 €. * **Mey'Hane:** Bietet Fisch und Meeresfrüchte und befindet sich am Gartenpool. Der Aufpreis beträgt 5 €.
+---
+[Test 81/100] [Ayscha/de] SUCCESS (7.12s)
+❓ Question: Gibt es ein Spa? Nennen Sie drei angebotene Dienstleistungen und sagen Sie mir, ob das türkische Bad kostenlos ist.
+�� Answer: Ja, es gibt ein Spa namens Reborn Spa & Wellness. Hier werden drei Dienstleistungen angeboten:  1. Körperbehandlungen der LPG Alliance 2. Massagen verschiedener Disziplinen 3. Gesichtspflege von Thalgo  Die Nutzung des Türkischen Bads ist kostenlos. Bei Interesse stelle ich Ihnen gerne weitere Informationen aus unserem SPA-Katalog zur Verfügung.
+---
+[Test 82/100] [Zeugma/tr] SUCCESS (8.26s)
+❓ Question: Spa var mı? Sunulan üç hizmeti listeleyin ve Türk hamamının ücretsiz olup olmadığını söyleyin.
+�� Answer: Evet, Reborn SPA & Wellness adında bir spa var. İşte sunulan üç hizmet:  1. "ENDOSPHERES" Vücut Bakımı (Selülit Tedavisi, Lenf Drenajı, Artan Dolaşım, Vücut Şekillendirme) 2. REBORN GELENEKSEL HAMAM (Peeling&köpük yıkama, Peeling&köpük masajı, Kahve peelingi, Köpük masajı) 3. REBORN TERAPİLERİ (Lokal masaj, Baş masajı, Rahatlatıcı masaj, Klasik masaj, Anne Adayı (hamile masajı), Aromaterapi, Derin doku masajı, Modelleme masajı, Miyoterapi, Çift masajı, Manuel Lenf Drenaj masajı, "Lüks MIX Terapi" masajı)  Türk hamamı kullanımı ücretsizdir.  İlgileniyorsanız, SPA kataloğumuzdan daha fazla ayrıntı sağlayabilirim.
+---
+[Test 83/100] [Zeugma/ru] SUCCESS (7.29s)
+❓ Question: У меня аллергия на орехи. Как отель решает вопросы с пищевой аллергией в главном ресторане?
+�� Answer: Для гостей с особыми аллергиями во всех наших ресторанах по запросу готовятся блюда, которые они хотят, если они укажут это заранее.
+---
+[Test 84/100] [Zeugma/de] SUCCESS (7.48s)
+❓ Question: Welche Art von Abendunterhaltung oder Shows kann ich erwarten?
+�� Answer: Laut heutigem Programm (3. Juli 2025) erwartet Sie von 21:15 bis 22:00 Uhr die Show der Beijing Acrobats und von 22:00 bis 23:30 Uhr Live-Musik im Taco. Außerdem gibt es von 20:30 bis 21:00 Uhr die Papy Disco.
+---
+[Test 85/100] [Belvil/de] SUCCESS (6.18s)
+❓ Question: Ich bin allergisch gegen Nüsse. Wie geht das Hotel mit Lebensmittelallergien im Hauptrestaurant um?
+�� Answer: Für Gäste mit besonderen Allergien werden in allen unseren Restaurants auf Anfrage und nach vorheriger Angabe die gewünschten Speisen zubereitet.
+---
+[Test 86/100] [Belvil/tr] SUCCESS (16.29s)
+❓ Question: Giriş ve çıkış saatleri nedir ve geç çıkış talep edebilir miyim?
+�� Answer: Otelimizde erken giriş ve geç çıkış ücretlidir. Erken giriş geç çıkışlar için dinlenme alanı (Bloom Lounge) bulunmaktadır.
+---
+[Test 87/100] [Zeugma/de] SUCCESS (7.21s)
+❓ Question: Gibt es ein Spa? Nennen Sie drei angebotene Dienstleistungen und sagen Sie mir, ob das türkische Bad kostenlos ist.
+�� Answer: Ja, es gibt ein Spa namens Reborn SPA & Wellness. Hier werden drei Dienstleistungen angeboten:  1. Endospheres-Körperbehandlung 2. Traditionelles Hamam 3. Lokale Massage  Die Nutzung des Türkischen Bads ist kostenlos.  Bei Interesse stelle ich Ihnen gerne weitere Informationen aus unserem SPA-Katalog zur Verfügung.
+---
+[Test 88/100] [Ayscha/tr] SUCCESS (19.27s)
+❓ Question: Antalya havalimanından otele nasıl giderim? Servisiniz var mı?
+�� Answer: Hangi otelde konaklıyorsunuz?
+---
+[Test 89/100] [Belvil/ru] SUCCESS (7.52s)
+❓ Question: Перечислите все бары. Какие из них открыты 24/7?
+�� Answer: Бары в Papillon Belvil: - Bloom Lounge - Wine Cellar - Mirage Bar - Aphrodite Lobby Bar - Beach Bar - Aqua Bar - Pasha Lounge - Disco Bar - Blue Pool Bar - Amphitheater - Food Court - PA & CO Coffee House  Bloom Lounge и Wine Cellar открыты круглосуточно.
+---
+[Test 90/100] [Zeugma/de] SUCCESS (7.33s)
+❓ Question: Welche Art von Abendunterhaltung oder Shows kann ich erwarten?
+�� Answer: Laut dem heutigen Programm (3. Juli 2025) erwartet Sie von 21:15 bis 22:00 Uhr die Show der Beijing Acrobats und von 22:00 bis 23:30 Uhr Live-Musik im Taco Snack. Außerdem gibt es von 20:30 bis 21:00 Uhr die Papy Disco.
+---
+[Test 91/100] [Belvil/de] SUCCESS (6.42s)
+❓ Question: Listen Sie alle Bars auf. Welche sind rund um die Uhr geöffnet?
+�� Answer: Die Bars im Papillon Belvil sind: – Bloom Lounge – Weinkeller – Mirage Bar – Aphrodite Lobby Bar – Strandbar – Aqua Bar – Pasha Lounge – Disco Bar – Blue Pool Bar – Amphitheater – Food Court  Die Bloom Lounge und der Weinkeller sind rund um die Uhr geöffnet.
+---
+[Test 92/100] [Ayscha/en] SUCCESS (6.41s)
+❓ Question: Is there a spa? List three services offered and tell me if the Turkish bath is free.
+�� Answer: Yes, there is a spa called Reborn Spa & Wellness. Here are three services offered:  1.  LPG Alliance body treatments 2.  Reborn Traditional Hamam 3.  Reborn Therapies  The Turkish bath is free to use.  If you are interested, I can provide more details from our SPA catalog. 
+---
+[Test 93/100] [Ayscha/en] SUCCESS (7.30s)
+❓ Question: Tell me about all the à la carte restaurants. What type of cuisine are they and do they have an extra charge?
+�� Answer: Here is information about the à la carte restaurants at Papillon Ayscha:  *   **Surf & Turf:** Steak & Seafood. There is a 50 € charge per person. Extra products selected from the menu will be charged at the daily market price. *   **Safran:** Modern Turkish cuisine. There is a 5 € charge per person. *   **Mikado:** Far East cuisine. There is a 5 € charge per person. The Teppanyaki section is chargeable according to the selected set menu. *   **Coral:** Fish & Seafood. (Open 15.04-31.10). There is a 5 € charge per person. *   **Viccolo:** Italian cuisine. (Open 01.05-31.10). There is a 5 € charge per person. *   **Taco:** Mexican cuisine. (Open 15.05-31.10). There is a 5 € charge per person.
+---
+[Test 94/100] [Ayscha/tr] SUCCESS (15.86s)
+❓ Question: Sakin ve dinlendirici bir tatil için hangi otel daha iyi, Zeugma mı Ayscha mı? Atmosferi tarif edin.
+�� Answer: Papillon Zeugma Relaxury ve Papillon Ayscha arasındaki tercihiniz, ne tür bir atmosfer aradığınıza bağlı olacaktır.  Papillon Zeugma Relaxury, adından da anlaşılacağı gibi, rahatlamaya odaklanır. Bu otelde lüks spa olanakları, havuzlar ve sakinleştirici ortamlar bulabilirsiniz. Genel atmosfer daha sessiz ve dinlendiricidir ve kendinizi şımartmak ve stresten arınmak için mükemmeldir.  Papillon Ayscha'nın atmosferi hakkında özel bir bilgiye sahip değilim.  Umarım bu, karar vermenize yardımcı olur!
+---
+[Test 95/100] [Belvil/en] SUCCESS (6.52s)
+❓ Question: What kind of evening entertainment or shows can I expect?
+�� Answer: The hotel offers the following evening entertainment: Professional Dance Shows, Live Music, Foam Party, Sunset Party, Disco, Piano Concert, Karaoke, Outdoor Cinema, Acrobatics Shows, Musical Shows, Theme Parties, and Festivals. On July 3, 2025, there will be a show featuring Mongolian Acrobats at 21:15 and live music at 22:00.
+---
+[Test 96/100] [Belvil/en] SUCCESS (6.27s)
+❓ Question: Tell me about all the à la carte restaurants. What type of cuisine are they and do they have an extra charge?
+�� Answer: Here is information about the à la carte restaurants at Papillon Belvil:  *   **Bloom (Steak & Wine):** Steak & Wine cuisine, paid, 35 € per person. *   **Bloom (Mediterranean):** Mediterranean cuisine, 5 € charge. *   **Mirage:** Italian cuisine, 5 € charge. *   **Kanji:** Far East cuisine, 5 € charge. *   **Dolce Vita:** Fish & Seafood cuisine, 5 € charge.
+---
+[Test 97/100] [Belvil/tr] SUCCESS (7.52s)
+❓ Question: Ne tür akşam eğlenceleri veya şovlar bekleyebilirim?
+�� Answer: Otel aşağıdaki akşam eğlencelerini sunmaktadır: Profesyonel Dans Gösterileri, Canlı Müzik, Köpük Partisi, Gün Batımı Partisi, Disko, Piyano Konseri, Karaoke, Açık Hava Sineması, Akrobasi Gösterileri, Müzikal Gösteriler, Tema Partileri ve Festivaller. Bugün, 3 Temmuz 2025'te, 21:15'te Moğol Akrobatları gösterisi ve 22:00'de Canlı Müzik olacak. Ayrıca 20:30'da bir Papy Kids Disco ve 21:15'te bir Papy Kids Sınavı var.
+---
+[Test 98/100] [Ayscha/tr] SUCCESS (8.13s)
+❓ Question: Tüm à la carte restoranlar hakkında bilgi verin. Mutfak türleri nedir ve ekstra ücretli midir?
+�� Answer: Papillon Ayscha'daki a la carte restoranlar hakkında bilgi şöyle:  * **Surf & Turf:** Steak & Seafood. Kişi başı 50 € ekstra ücret alınmaktadır. * **Safran:** Modern Türk mutfağı. Kişi başı 5 € ekstra ücret alınmaktadır. * **Mikado:** Uzakdoğu mutfağı. Kişi başı 5 € ekstra ücret alınmaktadır. Mikado Restaurant'taki Teppanyaki bölümü seçilen set menüye göre ücretlendirilmektedir. * **Coral:** Balık & Seafood. Kişi başı 5 € ekstra ücret alınmaktadır. (15.04-31.10 tarihleri arasında açıktır) * **Viccolo:** İtalyan mutfağı. Kişi başı 5 € ekstra ücret alınmaktadır. (01.05-31.10 tarihleri arasında açıktır) * **Taco:** Meksika mutfağı. Kişi başı 5 € ekstra ücret alınmaktadır. (15.05-31.10 tarihleri arasında açıktır)
+---
+[Test 99/100] [Zeugma/de] SUCCESS (19.65s)
+❓ Question: Was sind die Öffnungszeiten des Hauptschwimmbads und des Kinderbeckens?
+�� Answer: Ich habe keine detaillierten Informationen zu diesem Thema. 
+---
+[Test 100/100] [Ayscha/en] SUCCESS (7.02s)
+❓ Question: Tell me about all the à la carte restaurants. What type of cuisine are they and do they have an extra charge?
+�� Answer: Here is information about the à la carte restaurants at Papillon Ayscha:  *   **Surf & Turf:** Steak & Seafood, extra charge of 50 € per person. *   **Safran:** Modern Turkish, extra charge of 5 € per person. *   **Mikado:** Far East, extra charge of 5 € per person. *   **Mikado (Teppanyaki):** extra charge, price depends on the selected set menu. *   **Coral:** Fish & Seafood, extra charge of 5 € per person. (Open 15.04-31.10) *   **Viccolo:** Italian, extra charge of 5 € per person. (Open 01.05-31.10) *   **Taco:** Mexican, extra charge of 5 € per person. (Open 15.05-31.10)
+---

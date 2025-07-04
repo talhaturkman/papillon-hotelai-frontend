@@ -3,6 +3,7 @@ const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const geminiService = require('../services/gemini');
 const firebaseService = require('../services/firebase');
+const knowledgeService = require('../services/knowledge');
 const elevenLabsService = require('../services/elevenlabs');
 const translationService = require('../services/translation');
 const placesService = require('../services/places');
@@ -129,13 +130,18 @@ router.post('/', async (req, res) => {
         // 0. Her mesajda session context'i kontrol et (ÖNCE BUNU YAP!)
         const sessionContext = await firebaseService.getSessionContext(session_id);
         if (sessionContext.pending === 'hotel' && isHotelName(message)) {
+            console.log('[DEBUG] sessionContext (otel adı bekleniyor):', sessionContext);
             if (sessionContext.lastMessage) {
                 // 1. Otel ve dil ile ilgili bilgi metnini çek
                 const knowledge = await firebaseService.searchKnowledge(message, 'tr');
-                // 2. Soru + bilgi metni ile Gemini'ye gönder
+                // 2. Sohbet geçmişine yeni otel adını ekle
+                const updatedHistory = [...history, { role: 'user', content: message }];
+                // 3. Birleştirilmiş soruyu da history'ye ekle (kronolojik bütünlük için)
                 const fullQuestion = `${message} otelinde ${sessionContext.lastMessage}`;
+                updatedHistory.push({ role: 'user', content: fullQuestion });
+                console.log('[DEBUG] Birleştirilmiş soru Gemini\'ye gönderiliyor (tüm history ile):', fullQuestion);
                 const aiResponse = await geminiService.generateResponse(
-                    [{ role: 'user', content: fullQuestion }],
+                    updatedHistory,
                     knowledge?.content || '', // context
                     'tr'
                 );
@@ -238,22 +244,63 @@ router.post('/', async (req, res) => {
                 });
             }
             
-            // Eğer mesajda hem otel adı hem de soru varsa (tek seferde), direkt AI yanıtı üret
+            // Eğer mesajda hem otel adı hem de soru varsa (tek seferde), yeni çok dilli arama zincirini kullan
             if (fuzzyHotel && isQuestion) {
-                console.log('🔥 Hotel + Question detected in single message - generating AI response');
-                // 1. Otel ve dil ile ilgili bilgi metnini çek
-                const knowledge = await firebaseService.searchKnowledge(hotel, detectedLanguage);
-                // 2. Orijinal mesajı Gemini'ye gönder (otel adı zaten içinde)
-                const aiResponse = await geminiService.generateResponse(
-                    [{ role: 'user', content: message }],
-                    knowledge?.content || '', // context
-                    detectedLanguage
-                );
-                return res.json({
-                    success: true,
-                    response: aiResponse.response,
-                    hotel
-                });
+                console.log('🔥 Hotel + Question detected in single message - using multi-language knowledge search');
+                
+                // Restoran sorusu ise özel filtreleme yap
+                if (detectedRestaurant) {
+                    console.log(`[Chat Route] Restaurant-specific question detected: ${detectedRestaurant}`);
+                    // Restoran sorusu için eski yöntemi kullan (çünkü özel filtreleme gerekiyor)
+                    const knowledge = await firebaseService.searchKnowledge(hotel, detectedLanguage);
+                    if (knowledge && detectedRestaurant) {
+                        const filteredChunks = Object.entries(knowledge.fbChunks || {})
+                            .filter(([key]) => normalizeText(key).includes(normalizeText(detectedRestaurant)))
+                            .map(([, chunks]) => chunks)
+                            .flat();
+                        if (filteredChunks.length > 0) {
+                            knowledge.content = filteredChunks.map(chunk => chunk.text).join('\n');
+                        }
+                    }
+                    const aiResponse = await geminiService.generateResponse(
+                        chatHistory,
+                        knowledge?.content || '',
+                        detectedLanguage,
+                        userLocation
+                    );
+                    return res.json({
+                        success: true,
+                        response: aiResponse.response,
+                        hotel
+                    });
+                } else {
+                    // Genel sorular için yeni çok dilli arama zincirini kullan
+                    const knowledgeResult = await knowledgeService.findBestKnowledgeAnswer(message, hotel, detectedLanguage);
+                    
+                    if (knowledgeResult.success) {
+                        console.log(`[Chat Route] ✅ Found answer in ${knowledgeResult.sourceLanguage}: "${knowledgeResult.answer.substring(0, 50)}..."`);
+                        return res.json({
+                            success: true,
+                            response: knowledgeResult.answer,
+                            hotel
+                        });
+                    } else {
+                        console.log(`[Chat Route] ❌ No answer found, using fallback LLM response`);
+                        // Fallback: Eski yöntemle LLM'ye gönder
+                        const knowledge = await firebaseService.searchKnowledge(hotel, detectedLanguage);
+                        const aiResponse = await geminiService.generateResponse(
+                            chatHistory,
+                            knowledge?.content || '',
+                            detectedLanguage,
+                            userLocation
+                        );
+                        return res.json({
+                            success: true,
+                            response: aiResponse.response,
+                            hotel
+                        });
+                    }
+                }
             }
             
             // Eğer canlı destek anahtar kelimesi de varsa
@@ -506,28 +553,53 @@ router.post('/', async (req, res) => {
             }
         }
 
-        // CANLI DESTEK TALEBİ VARSA, LOKASYON ANALİZİ VE DİĞERLERİ ATLANSIN
-        let geminiResponse;
+        // YENİ: Çok dilli bilgi arama zinciri kullan
+        console.log(`[Chat Route] Using multi-language knowledge search for: "${message}"`);
+        
         let responseText;
-        // Canlı destek isteği kontrolü için önce knowledge'ı al
-        const knowledge = await firebaseService.searchKnowledge(hotel, detectedLanguage);
-        if (knowledge && detectedRestaurant) {
-          // Sadece ilgili restoran chunk'larını filtrele
-          const filteredChunks = Object.entries(knowledge.fbChunks || {})
-            .filter(([key]) => normalizeText(key).includes(normalizeText(detectedRestaurant)))
-            .map(([, chunks]) => chunks)
-            .flat();
-          if (filteredChunks.length > 0) {
-            knowledge.content = filteredChunks.map(chunk => chunk.text).join('\n');
-          }
+        let geminiResponse = null;
+        
+        // Restoran sorusu ise özel filtreleme yap
+        if (detectedRestaurant) {
+            console.log(`[Chat Route] Restaurant-specific question detected: ${detectedRestaurant}`);
+            // Restoran sorusu için eski yöntemi kullan (çünkü özel filtreleme gerekiyor)
+            const knowledge = await firebaseService.searchKnowledge(hotel, detectedLanguage);
+            if (knowledge && detectedRestaurant) {
+                const filteredChunks = Object.entries(knowledge.fbChunks || {})
+                    .filter(([key]) => normalizeText(key).includes(normalizeText(detectedRestaurant)))
+                    .map(([, chunks]) => chunks)
+                    .flat();
+                if (filteredChunks.length > 0) {
+                    knowledge.content = filteredChunks.map(chunk => chunk.text).join('\n');
+                }
+            }
+            geminiResponse = await geminiService.generateResponse(
+                chatHistory,
+                knowledge?.content || '',
+                detectedLanguage,
+                userLocation
+            );
+            responseText = geminiResponse.response;
+        } else {
+            // Genel sorular için yeni çok dilli arama zincirini kullan
+            const knowledgeResult = await knowledgeService.findBestKnowledgeAnswer(message, hotel, detectedLanguage);
+            
+            if (knowledgeResult.success) {
+                console.log(`[Chat Route] ✅ Found answer in ${knowledgeResult.sourceLanguage}: "${knowledgeResult.answer.substring(0, 50)}..."`);
+                responseText = knowledgeResult.answer;
+            } else {
+                console.log(`[Chat Route] ❌ No answer found, using fallback LLM response`);
+                // Fallback: Eski yöntemle LLM'ye gönder
+                const knowledge = await firebaseService.searchKnowledge(hotel, detectedLanguage);
+                geminiResponse = await geminiService.generateResponse(
+                    chatHistory,
+                    knowledge?.content || '',
+                    detectedLanguage,
+                    userLocation
+                );
+                responseText = geminiResponse.response;
+            }
         }
-        geminiResponse = await geminiService.generateResponse(
-            chatHistory,
-            knowledge.content,
-            detectedLanguage,
-            userLocation
-        );
-        responseText = geminiResponse.response;
         if (responseText && responseText.includes('[DESTEK_TALEBI]')) {
             offerSupport = true;
             if (hotel === 'Unknown') {
@@ -571,20 +643,20 @@ router.post('/', async (req, res) => {
             'Если вам интересно, я могу предоставить больше информации из нашего СПА-каталога.'
         ];
         const spaKeywords = ['spa', 'wellness', 'masaj', 'massage', 'bakım', 'treatment'];
-        if (geminiResponse && geminiResponse.response) {
+        if (responseText) {
             // Sadece amenity ve facility alanlarına bak
             const amenityOrFacility = ((amenity || '') + ' ' + (llmAnalysis?.facility || '')).toLowerCase();
             const isSpaContext = spaKeywords.some(kw => amenityOrFacility.includes(kw));
             spaCatalogOfferSentences.forEach(sentence => {
-                if (!isSpaContext && geminiResponse.response.includes(sentence)) {
-                    geminiResponse.response = geminiResponse.response.replace(sentence, '').replace(/\s{2,}/g, ' ').trim();
+                if (!isSpaContext && responseText.includes(sentence)) {
+                    responseText = responseText.replace(sentence, '').replace(/\s{2,}/g, ' ').trim();
                 }
             });
         }
 
         return res.json({
             success: true,
-            response: geminiResponse.response,
+            response: responseText,
             offerSupport,
             hotel: hotel !== 'Unknown' ? hotel : undefined,
             needHotelSelection

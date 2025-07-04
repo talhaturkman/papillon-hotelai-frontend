@@ -26,7 +26,14 @@ function formatMessage(text) {
 
 function ChatInterface() {
   const [messages, setMessages] = useState([]);
-  const [sessionId, setSessionId] = useState(() => localStorage.getItem(LOCAL_SESSION_KEY) || null);
+  const [sessionId, setSessionId] = useState(() => {
+    let sid = localStorage.getItem(LOCAL_SESSION_KEY);
+    if (!sid) {
+      sid = window.crypto?.randomUUID?.() || Math.random().toString(36).slice(2) + Date.now();
+      localStorage.setItem(LOCAL_SESSION_KEY, sid);
+    }
+    return sid;
+  });
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [userLocation, setUserLocation] = useState(null);
@@ -47,8 +54,37 @@ function ChatInterface() {
 
   const isLocationQuery = (message) => {
     const lowerMessage = message.toLowerCase();
-    const locationKeywords = ['nerede', 'yakın', 'mesafe', 'nasıl gidilir', 'en yakın', 'where', 'near', 'nearby', 'closest', 'nearest', 'distance', 'how to get', 'wo', 'nähe', 'nächste', 'entfernung', 'wie komme ich', 'где', 'рядом', 'ближайший', 'расстояние', 'как добраться', 'restoran', 'hastane', 'market', 'eczane', 'lunapark', 'plaj', 'restaurant', 'hospital', 'pharmacy', 'amusement', 'beach', 'park', 'krankenhaus', 'apotheke', 'strand', 'freizeitpark', 'больница', 'ресторан', 'аптека', 'пляж', 'парк'];
+    const locationKeywords = ['nerede', 'yakın', 'mesafe', 'nasıl gidilir', 'en yakın', 'where', 'near', 'nearby', 'closest', 'nearest', 'distance', 'how to get', 'wo', 'nähe', 'nächste', 'entfernung', 'wie komme ich', 'где', 'рядом', 'ближайший', 'расстояние', 'как добраться'];
     return locationKeywords.some(keyword => lowerMessage.includes(keyword));
+  };
+
+  const addMessage = (newMsg) => {
+    // Eğer yeni mesaj canlı destek onayı ise, eski otel seçim mesajlarını temizle
+    if (newMsg.offerSupport && newMsg.needHotelSelection === false) {
+      // Dinamik metin oluştur
+      let content = '';
+      if (newMsg.response) {
+        if (newMsg.hotel && newMsg.response.toLowerCase().includes('canlı desteğe bağlanmak istiyor musunuz')) {
+          content = `${newMsg.hotel} otelinin canlı desteğine bağlanmak istiyor musunuz?`;
+        } else if (newMsg.hotel && newMsg.response.toLowerCase().includes('do you want to connect to live support')) {
+          content = `Do you want to connect to live support for ${newMsg.hotel} hotel?`;
+        } else if (newMsg.hotel && newMsg.response.toLowerCase().includes('möchten sie mit dem live-support verbunden werden')) {
+          content = `Möchten Sie mit dem Live-Support für das Hotel ${newMsg.hotel} verbunden werden?`;
+        } else if (newMsg.hotel && newMsg.response.toLowerCase().includes('вы хотите подключиться к службе поддержки')) {
+          content = `Вы хотите подключиться к службе поддержки отеля ${newMsg.hotel}?`;
+        } else {
+          content = newMsg.response;
+        }
+      }
+      setMessages(prev => [
+        ...prev.filter(m => !(m.offerSupport && m.needHotelSelection === true)),
+        { ...newMsg, content }
+      ]);
+    } else {
+      setMessages(prev => [...prev, { ...newMsg, content: newMsg.response || newMsg.content }]);
+    }
+    // Debug log
+    console.log('DEBUG: Yeni mesaj eklendi:', newMsg);
   };
 
   const sendMessage = async (customLocation = null) => {
@@ -71,13 +107,17 @@ function ChatInterface() {
     setIsLoading(true);
     try {
       const history = messages.map(msg => ({ role: msg.role, content: msg.content }));
-      const requestData = { message: messageToProcess, history: history, sessionId: sessionId || undefined };
+      const requestData = { message: messageToProcess, history: history, session_id: sessionId };
       if (userLocation || customLocation) {
         requestData.userLocation = customLocation || userLocation;
       }
       const response = await axios.post(`${API_BASE_URL}/api/chat`, requestData);
-      const assistantMessage = { id: Date.now() + 1, role: 'assistant', content: response.data.response, timestamp: new Date(), placesData: response.data.placesData, offerSupport: response.data.offerSupport };
-      setMessages(prev => [...prev, assistantMessage]);
+      console.log('DEBUG: Backend cevabı:', response.data);
+      addMessage({
+        id: Date.now(),
+        role: 'assistant',
+        ...response.data
+      });
       if (response.data.sessionId && response.data.sessionId !== sessionId) {
         setSessionId(response.data.sessionId);
         localStorage.setItem(LOCAL_SESSION_KEY, response.data.sessionId);
@@ -227,7 +267,11 @@ function ChatInterface() {
       needHotelSelection: false,
       timestamp: new Date()
     };
-    setMessages(prev => [...prev, confirmMsg]);
+    // Eski otel seçim mesajlarını temizle
+    setMessages(prev => [
+      ...prev.filter(m => !(m.offerSupport && m.needHotelSelection === true)),
+      confirmMsg
+    ]);
   };
 
   useEffect(() => {
@@ -266,7 +310,7 @@ function ChatInterface() {
               <>
                 <div dangerouslySetInnerHTML={{ __html: formatMessage((message.content || '').replace('[DESTEK_TALEBI]', '')) }} />
                 {message.placesData && <MapComponent placesData={message.placesData} />}
-                {message.offerSupport && message.needHotelSelection === true && (
+                {message.offerSupport && (message.needHotelSelection === undefined || message.needHotelSelection === true) && (
                   <div className="support-actions">
                     <button onClick={() => handleHotelSelection('Belvil')} className="support-button support-button-yes">Belvil</button>
                     <button onClick={() => handleHotelSelection('Zeugma')} className="support-button support-button-yes">Zeugma</button>

@@ -1,5 +1,6 @@
 const admin = require('firebase-admin');
 const path = require('path');
+const translationService = require('./translation');
 
 class FirebaseService {
     constructor() {
@@ -397,10 +398,10 @@ class FirebaseService {
         const languagePriorities = [language, 'en', 'tr', 'de', 'ru'].filter((v, i, a) => a.indexOf(v) === i);
         console.log(`[Knowledge Search] Language priority order: ${languagePriorities.join(', ')}`);
         
-        let foundGeneral = null;
-        let foundDaily = null;
-        let foundSpa = null;
-        let foundFB = null; // F&B kategorisi için
+        let foundGeneral = null, foundGeneralLang = null;
+        let foundDaily = null, foundDailyLang = null;
+        let foundSpa = null, foundSpaLang = null;
+        let foundFB = null, foundFBLang = null; // F&B kategorisi için
 
         const dates = this.getDates();
         const { todayStart, todayEnd, yesterdayStart, yesterdayEnd, todayDate, yesterdayDate } = dates;
@@ -574,6 +575,7 @@ class FirebaseService {
             
             if (!foundGeneral && results.general) {
                 foundGeneral = results.general;
+                foundGeneralLang = lang;
                 console.log(`[Knowledge Search] SUCCESS: Found GENERAL info in language: ${lang}`);
             }
             if (!foundDaily && (results.dailyToday || results.dailyYesterday)) {
@@ -582,17 +584,44 @@ class FirebaseService {
                     yesterday: results.dailyYesterday,
                     dates: results.dates 
                 };
+                foundDailyLang = lang;
                 console.log(`[Knowledge Search] SUCCESS: Found DAILY info in language: ${lang}`);
             }
             if (!foundSpa && results.spa) {
                 foundSpa = results.spa;
+                foundSpaLang = lang;
                 console.log(`[Knowledge Search] SUCCESS: Found SPA info in language: ${lang}`);
             }
             if (!foundFB && results.fb) {
                 foundFB = results.fb;
+                foundFBLang = lang;
                 console.log(`[Knowledge Search] SUCCESS: Found F&B info in language: ${lang}`);
             }
             if (foundGeneral && foundDaily && foundSpa && foundFB) break;
+        }
+
+        // Çeviri fallback: Eğer bulunan chunk kullanıcının dilinde değilse, çevir
+        if (foundGeneral && foundGeneralLang !== language) {
+            console.log(`[Knowledge Search] Translating GENERAL info from ${foundGeneralLang} to ${language}`);
+            foundGeneral = await translationService.translateText(foundGeneral, language);
+        }
+        if (foundDaily && foundDailyLang !== language) {
+            if (foundDaily.today) {
+                console.log(`[Knowledge Search] Translating DAILY TODAY info from ${foundDailyLang} to ${language}`);
+                foundDaily.today = await translationService.translateText(foundDaily.today, language);
+            }
+            if (foundDaily.yesterday) {
+                console.log(`[Knowledge Search] Translating DAILY YESTERDAY info from ${foundDailyLang} to ${language}`);
+                foundDaily.yesterday = await translationService.translateText(foundDaily.yesterday, language);
+            }
+        }
+        if (foundSpa && foundSpaLang !== language) {
+            console.log(`[Knowledge Search] Translating SPA info from ${foundSpaLang} to ${language}`);
+            foundSpa = await translationService.translateText(foundSpa, language);
+        }
+        if (foundFB && foundFBLang !== language) {
+            console.log(`[Knowledge Search] Translating F&B info from ${foundFBLang} to ${language}`);
+            foundFB = await translationService.translateText(foundFB, language);
         }
 
         let finalContent = '';

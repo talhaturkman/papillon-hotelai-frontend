@@ -13,34 +13,46 @@ const AnalyticsTab = () => {
     const [lastUpdate, setLastUpdate] = useState(null);
     const [autoRefresh, setAutoRefresh] = useState(true);
     const [refreshInterval, setRefreshInterval] = useState(null);
+    
+    // LOOP KORUMASI: Frontend seviyesinde rate limiting
+    const [lastFetchTime, setLastFetchTime] = useState(0);
+    const minFetchInterval = 5000; // 5 saniye minimum bekleme süresi
 
     const fetchQuestions = async (force = false) => {
         try {
-    setLoading(true);
+            // LOOP KORUMASI: Çok sık çağrılıyorsa bekle
+            const now = Date.now();
+            if (!force && (now - lastFetchTime) < minFetchInterval) {
+                console.log('⚠️ Fetch called too frequently, skipping...');
+                return;
+            }
+            
+            setLastFetchTime(now);
+            setLoading(true);
             setError(null);
             const response = await axios.get(`/api/analytics/top-questions${force ? '?force=true' : ''}`);
-      if (response.data.success) {
+            if (response.data.success) {
                 setQuestions(response.data.questions);
                 setLastUpdate(response.data.lastUpdated);
-      } else {
+            } else {
                 throw new Error(response.data.error || 'Failed to fetch questions');
-      }
-    } catch (error) {
+            }
+        } catch (error) {
             setError(error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
         fetchQuestions();
         
-        // Otomatik yenileme başlat (30 saniyede bir)
+        // Otomatik yenileme başlat (60 saniyede bir - daha uzun aralık)
         if (autoRefresh) {
             const interval = setInterval(() => {
                 console.log('🔄 Auto-refreshing analytics...');
                 fetchQuestions();
-            }, 30000); // 30 saniye
+            }, 60000); // 60 saniye - loop koruması için daha uzun aralık
             
             setRefreshInterval(interval);
         }
@@ -92,6 +104,14 @@ const AnalyticsTab = () => {
                         color="primary"
                         startIcon={<RefreshIcon />}
                         onClick={async () => {
+                            // LOOP KORUMASI: Çok sık çağrılıyorsa bekle
+                            const now = Date.now();
+                            if ((now - lastFetchTime) < minFetchInterval) {
+                                console.log('⚠️ Full analyze called too frequently, skipping...');
+                                return;
+                            }
+                            
+                            setLastFetchTime(now);
                             setLoading(true);
                             setError(null);
                             try {
