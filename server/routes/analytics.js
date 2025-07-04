@@ -2,6 +2,11 @@ const express = require('express');
 const router = express.Router();
 const questionAnalytics = require('../services/questionAnalytics');
 
+// LOOP KORUMASI: Route seviyesinde rate limiting
+let lastClearCacheTime = null;
+let lastFullAnalyzeTime = null;
+const routeCooldown = 10 * 1000; // 10 saniye bekleme süresi
+
 // Get top 10 most asked questions
 router.get('/top-questions', async (req, res) => {
     try {
@@ -22,6 +27,18 @@ router.get('/top-questions', async (req, res) => {
 router.delete('/clear-cache', async (req, res) => {
     try {
         console.log('🧹 Received cache clear request');
+        
+        // LOOP KORUMASI: Çok sık çağrılıyorsa bekle
+        if (lastClearCacheTime && (Date.now() - lastClearCacheTime) < routeCooldown) {
+            console.log('⚠️ Clear cache called too frequently, skipping...');
+            return res.status(429).json({
+                success: false,
+                error: 'Çok sık çağrılıyor, lütfen bekleyin',
+                retryAfter: Math.ceil((routeCooldown - (Date.now() - lastClearCacheTime)) / 1000)
+            });
+        }
+        
+        lastClearCacheTime = Date.now();
         
         // Clear the local cache
         console.log('🗑️ Clearing local cache...');
@@ -118,6 +135,18 @@ router.get('/stats', async (req, res) => {
 // Tam analiz endpointi
 router.post('/full-analyze', async (req, res) => {
     try {
+        // LOOP KORUMASI: Çok sık çağrılıyorsa bekle
+        if (lastFullAnalyzeTime && (Date.now() - lastFullAnalyzeTime) < routeCooldown) {
+            console.log('⚠️ Full analyze called too frequently, skipping...');
+            return res.status(429).json({
+                success: false,
+                error: 'Çok sık çağrılıyor, lütfen bekleyin',
+                retryAfter: Math.ceil((routeCooldown - (Date.now() - lastFullAnalyzeTime)) / 1000)
+            });
+        }
+        
+        lastFullAnalyzeTime = Date.now();
+        
         questionAnalytics.clearCache();
         const result = await questionAnalytics.analyzeQuestions(true);
         res.json({

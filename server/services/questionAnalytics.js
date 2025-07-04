@@ -11,6 +11,11 @@ let questionCache = null;
 let lastCacheTime = null;
 const cacheValidityPeriod = 2 * 60 * 1000; // 2 minutes - daha hızlı güncelleme için
 
+// LOOP KORUMASI: Analiz işlemini kilitlemek için
+let isAnalyzing = false;
+let lastAnalysisTime = null;
+const analysisCooldown = 30 * 1000; // 30 saniye bekleme süresi
+
 // Cache invalidation için event emitter
 const EventEmitter = require('events');
 const analyticsEvents = new EventEmitter();
@@ -71,19 +76,42 @@ async function isQuestion(text, language) {
         }
     }
 
-    // First, check if it's just a hotel name
+    // First, check if it's just a hotel name (fuzzy matching dahil)
     const hotelNames = ['belvil', 'zeugma', 'ayscha'];
     const textLower = textForGemini.toLowerCase().trim();
-    
-    // If it's just a hotel name or hotel name + "otelde", it's not a question
-    if (hotelNames.some(hotel => 
-        textLower === hotel || 
-        textLower === `${hotel} otelde` ||
-        textLower === `${hotel} otel` ||
-        textLower === `${hotel} hotel`
-    )) {
-        console.log(`❌ Skipping hotel name: "${textForGemini}"`);
-        return false;
+    // Fuzzy otel adı eşleşmesi (Levenshtein mesafesi <=2)
+    function levenshtein(a, b) {
+        if (a.length === 0) return b.length;
+        if (b.length === 0) return a.length;
+        const matrix = [];
+        for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+        for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+        for (let i = 1; i <= b.length; i++) {
+            for (let j = 1; j <= a.length; j++) {
+                if (b.charAt(i - 1) === a.charAt(j - 1)) {
+                    matrix[i][j] = matrix[i - 1][j - 1];
+                } else {
+                    matrix[i][j] = Math.min(
+                        matrix[i - 1][j - 1] + 1, // substitution
+                        matrix[i][j - 1] + 1,     // insertion
+                        matrix[i - 1][j] + 1      // deletion
+                    );
+                }
+            }
+        }
+        return matrix[b.length][a.length];
+    }
+    let isHotelName = false;
+    for (const hotel of hotelNames) {
+        const dist = levenshtein(textLower, hotel);
+        if (dist <= 2) {
+            isHotelName = true;
+            break;
+        }
+    }
+    // Eğer otel adı ise, çeviri ve Gemini'ye gönderme, direkt true dön
+    if (isHotelName) {
+        return true;
     }
 
     // Gemini prompt
@@ -92,15 +120,12 @@ async function isQuestion(text, language) {
 Text: "${textForGemini}"
 
 Rules:
-1. Return "true" ONLY if the text is a genuine question or inquiry that needs a response
-2. Return "false" for:
+1. Return "true" if the text is a question or inquiry that seeks information, even if it is short, yes/no, or about hotel services.
+2. Return "true" for any sentence that asks for information, confirmation, or details (including test, sample, or demo questions).
+3. Return "false" for:
    - Simple greetings (hello, hi, etc.)
-   - Single words or hotel names (belvil, zeugma, ayscha)
-   - Hotel names with "otel/hotel/otelde" suffix
-   - Statements or exclamations
    - Thank you messages
    - Goodbyes
-   - Location names without a question
    - Any text that doesn't seek information or require a response
 
 Important: Return ONLY "true" or "false", no other text or formatting.`;
@@ -109,7 +134,10 @@ Important: Return ONLY "true" or "false", no other text or formatting.`;
         console.log(`[isQuestion] Text sent to Gemini: "${textForGemini}"`);
         // Tek mesaj için özel fonksiyon kullan
         const result = await geminiService.generateSingleResponse(prompt, 'en');
-        console.log(`[isQuestion] Gemini raw response:`, result.response);
+        console.log('==== GEMINI isQuestion RAW RESPONSE ====');
+        console.log('Prompt:', prompt);
+        console.log('Gemini Response:', result.response);
+        console.log('========================================');
         if (!result.success) throw new Error(result.error || 'Failed to get AI response');
         const cleanResponse = result.response.trim().toLowerCase();
         const isQuestion = cleanResponse.includes('true') || cleanResponse.includes('yes') || cleanResponse.includes('question');
@@ -158,8 +186,9 @@ Important: Return ONLY "true" or "false", no other text or formatting.`;
     }
 }
 
-async function categorizeQuestion(text) {
-    const prompt = `Analyze the following question/inquiry and categorize it. Consider the intent, context, and any mentioned facilities or services.
+// Optimized categorization with embedding in one call
+async function categorizeQuestionWithEmbedding(text) {
+    const prompt = `Analyze the following question/inquiry and provide both categorization and semantic embedding information.
 
 Text: "${text}"
 
@@ -167,11 +196,13 @@ Return a JSON object with these properties:
 - category: one of: location, time, availability, transport, price, facility, general, entertainment
 - facility: one of: bathroom, shop, restaurant, pool, beach, spa, gym, entertainment, medical, transport, or null if not about a specific facility
 - intent: brief description of the user's intent
+- semantic_keywords: array of 5-10 key semantic words that represent this question's meaning
+- embedding_context: brief context description for embedding generation
 
 Important: Return ONLY the JSON object, no markdown formatting or code blocks. Do not use 'facility' for hotel names (Belvil, Zeugma, Ayscha).`;
 
     try {
-        // Tek mesaj için özel fonksiyon kullan
+        // Tek AI çağrısı ile hem kategorizasyon hem embedding context al
         const result = await geminiService.generateSingleResponse(prompt, 'en');
         if (!result.success) throw new Error(result.error || 'Failed to get AI response');
         
@@ -183,22 +214,65 @@ Important: Return ONLY the JSON object, no markdown formatting or code blocks. D
         
         try {
             const parsed = JSON.parse(cleanJson);
-            console.log(`🤖 AI Categorization for "${text}":`, parsed);
-            return parsed;
+            console.log(`🤖 AI Categorization + Embedding Context for "${text}":`, parsed);
+            
+            // Şimdi embedding'i al (optimized context ile)
+            const embeddingContext = parsed.embedding_context || text;
+            const embedding = await getEmbedding(embeddingContext);
+            
+            return {
+                ...parsed,
+                embedding: embedding,
+                originalText: text
+            };
         } catch (jsonError) {
             console.error('❌ Failed to parse JSON response:', cleanJson);
             throw jsonError;
         }
     } catch (error) {
-        console.error('❌ AI Categorization failed:', error);
+        console.error('❌ AI Categorization + Embedding failed:', error);
         // Return default categorization if AI fails
-        return { category: 'general', facility: null, intent: null };
+        return { 
+            category: 'general', 
+            facility: null, 
+            intent: null,
+            semantic_keywords: [],
+            embedding_context: text,
+            embedding: null,
+            originalText: text
+        };
     }
+}
+
+// Legacy function for backward compatibility
+async function categorizeQuestion(text) {
+    const result = await categorizeQuestionWithEmbedding(text);
+    return {
+        category: result.category,
+        facility: result.facility,
+        intent: result.intent
+    };
 }
 
 async function analyzeQuestions(forceRefresh = false) {
     try {
         console.log(`🔍 Analyzing questions (force refresh: ${forceRefresh})`);
+        
+        // LOOP KORUMASI: Eğer analiz zaten çalışıyorsa bekle
+        if (isAnalyzing) {
+            console.log('⚠️ Analysis already in progress, skipping...');
+            return questionCache || { success: true, questions: [], lastUpdated: new Date().toISOString() };
+        }
+        
+        // LOOP KORUMASI: Çok sık çağrılıyorsa bekle
+        if (lastAnalysisTime && (Date.now() - lastAnalysisTime) < analysisCooldown) {
+            console.log('⚠️ Analysis called too frequently, using cache...');
+            return questionCache || { success: true, questions: [], lastUpdated: new Date().toISOString() };
+        }
+        
+        // Analiz işlemini kilitle
+        isAnalyzing = true;
+        lastAnalysisTime = Date.now();
         
         // Get the latest question count and updates
         let recentQuestions, recentUpdates;
@@ -255,9 +329,45 @@ async function analyzeQuestions(forceRefresh = false) {
             return { success: true, questions: [], lastUpdated: new Date().toISOString() };
         }
 
-        // Process questions - artık sadece gerçek soruları işle
+        // LOOP SORUNUNU ÇÖZ: Sadece işlenmemiş soruları işle
+        const unprocessedQuestions = realQuestions.filter(q => 
+            !q.preprocessed || 
+            !q.analyzedAt || 
+            !q.categorization || 
+            !q.embedding
+        );
+        
+        const alreadyProcessedQuestions = realQuestions.filter(q => 
+            q.preprocessed && 
+            q.analyzedAt && 
+            q.categorization && 
+            q.embedding
+        );
+        
+        console.log(`🔄 Found ${unprocessedQuestions.length} unprocessed questions out of ${realQuestions.length} total`);
+        console.log(`✅ Found ${alreadyProcessedQuestions.length} already processed questions`);
+
+        // Process questions - sadece işlenmemiş olanları işle
         const processedQuestions = [];
-        for (const q of realQuestions) {
+        
+        // Önce zaten işlenmiş soruları ekle
+        for (const q of alreadyProcessedQuestions) {
+            const questionData = {
+                ...q,
+                message: q.message || q.text || '', // Ensure message exists
+                detectedHotel: q.detectedHotel || q.hotel || 'Unknown',
+                language: q.detectedLanguage || q.language || 'unknown',
+                timestamp: q.createdAt || q.timestamp || new Date().toISOString(),
+                category: q.category || 'general',
+                facility: q.facility || null,
+                categorization: q.categorization,
+                embedding: q.embedding
+            };
+            processedQuestions.push(questionData);
+        }
+        
+        // Sonra işlenmemiş soruları işle
+        for (const q of unprocessedQuestions) {
             try {
                 // Skip invalid questions
                 if (!q.message || !q.message.trim()) {
@@ -276,27 +386,37 @@ async function analyzeQuestions(forceRefresh = false) {
                     facility: q.facility || null
                 };
 
-                // Eğer categorization yoksa, şimdi yap
-                if (!q.categorization && q.preprocessed) {
-                    try {
-                        console.log(`🔄 Re-categorizing question: "${q.message}"`);
-                        const categorization = await categorizeQuestion(q.message);
-                        questionData.categorization = categorization;
-                        questionData.category = categorization.category;
-                        questionData.facility = categorization.facility;
-                        
-                        // Update the question in Firebase with categorization
-                        await firebaseService.updateQuestionAnalytics(q.id, {
-                            categorization,
-                            category: categorization.category,
-                            facility: categorization.facility
-                        });
-                    } catch (error) {
-                        console.error('❌ Error re-categorizing question:', error);
-                        // Varsayılan değerlerle devam et
-                    }
-                } else if (q.categorization) {
-                    questionData.categorization = q.categorization;
+                // Sadece işlenmemiş sorular için kategorizasyon ve embedding yap
+                try {
+                    console.log(`🔄 Processing new question with embedding: "${q.message}"`);
+                    const categorizationWithEmbedding = await categorizeQuestionWithEmbedding(q.message);
+                    
+                    // Hem kategorizasyon hem embedding bilgilerini kaydet
+                    questionData.categorization = {
+                        category: categorizationWithEmbedding.category,
+                        facility: categorizationWithEmbedding.facility,
+                        intent: categorizationWithEmbedding.intent
+                    };
+                    questionData.category = categorizationWithEmbedding.category;
+                    questionData.facility = categorizationWithEmbedding.facility;
+                    questionData.embedding = categorizationWithEmbedding.embedding;
+                    questionData.semantic_keywords = categorizationWithEmbedding.semantic_keywords;
+                    
+                    // Update the question in Firebase with categorization, embedding and processed flags
+                    await firebaseService.updateQuestionAnalytics(q.id, {
+                        categorization: questionData.categorization,
+                        category: categorizationWithEmbedding.category,
+                        facility: categorizationWithEmbedding.facility,
+                        embedding: categorizationWithEmbedding.embedding,
+                        semantic_keywords: categorizationWithEmbedding.semantic_keywords,
+                        preprocessed: true,
+                        analyzedAt: new Date().toISOString()
+                    });
+                    
+                    console.log(`✅ Successfully processed and marked question: "${q.message}"`);
+                } catch (error) {
+                    console.error('❌ Error processing question with embedding:', error);
+                    // Varsayılan değerlerle devam et
                 }
 
                 processedQuestions.push(questionData);
@@ -334,6 +454,9 @@ async function analyzeQuestions(forceRefresh = false) {
     } catch (error) {
         console.error('❌ Error analyzing questions:', error);
         return { success: false, error: error.message };
+    } finally {
+        // LOOP KORUMASI: Analiz işlemini serbest bırak
+        isAnalyzing = false;
     }
 }
 
@@ -450,14 +573,25 @@ async function groupSimilarQuestions(questions) {
     }
 
     try {
-        // Her soru için embedding al (çeviri destekli)
+        // Her soru için embedding kontrolü (optimized - zaten varsa kullan)
         const questionsWithEmbeddings = await Promise.all(
             questions.map(async (q) => {
                 const text = q.message || q.text || '';
                 if (!text.trim()) return null;
                 
                 try {
-                    const embedding = await getEmbeddingWithTranslation(text, q.language || 'unknown');
+                    let embedding;
+                    
+                    // Eğer embedding zaten varsa kullan (optimized)
+                    if (q.embedding && Array.isArray(q.embedding)) {
+                        console.log(`✅ Using existing embedding for: "${text}"`);
+                        embedding = q.embedding;
+                    } else {
+                        // Yoksa yeni embedding al (fallback)
+                        console.log(`🔄 Generating new embedding for: "${text}"`);
+                        embedding = await getEmbeddingWithTranslation(text, q.language || 'unknown');
+                    }
+                    
                     return {
                         ...q,
                         text: text,
@@ -664,6 +798,7 @@ module.exports = {
     clearCache,
     isQuestion,
     categorizeQuestion,
+    categorizeQuestionWithEmbedding,
     invalidateCache,
     analyticsEvents,
     groupSimilarQuestions,

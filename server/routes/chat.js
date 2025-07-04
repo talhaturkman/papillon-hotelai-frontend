@@ -8,6 +8,88 @@ const translationService = require('../services/translation');
 const placesService = require('../services/places');
 const questionAnalytics = require('../services/questionAnalytics');
 
+// Fuzzy string matching (Levenshtein distance)
+function levenshtein(a, b) {
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+  const matrix = [];
+  for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+  for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+  for (let i = 1; i <= b.length; i++) {
+    for (let j = 1; j <= a.length; j++) {
+      if (b.charAt(i - 1) === a.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1, // substitution
+          matrix[i][j - 1] + 1,     // insertion
+          matrix[i - 1][j] + 1      // deletion
+        );
+      }
+    }
+  }
+  return matrix[b.length][a.length];
+}
+
+// Otel adı kontrolü fonksiyonu
+function isHotelName(msg) {
+  const hotels = ['belvil', 'zeugma', 'ayscha'];
+  return hotels.includes(msg.trim().toLowerCase());
+}
+
+// Örnek restoran bilgisi fonksiyonu
+async function getHotelRestaurants(hotel) {
+  const data = {
+    belvil: 'Ana Restoran, İtalyan, Balık',
+    zeugma: 'Ana Restoran, Türk, Uzakdoğu',
+    ayscha: 'Ana Restoran, Fransız, Meksika'
+  };
+  return data[hotel.toLowerCase()] || 'Bilgi yok';
+}
+
+// Restoran/alan ismi → otel eşleştirme haritası (güncel ve tam)
+const restaurantToHotel = {
+  // Zeugma
+  'mosaic': 'zeugma',
+  'papy çocuk restoranı': 'zeugma',
+  'asma': 'zeugma',
+  'food court': ['zeugma', 'belvil', 'ayscha'],
+  'macrina': 'zeugma',
+  'pa&co': ['zeugma', 'ayscha'],
+  'beer house': 'zeugma',
+  'farfalle': 'zeugma',
+  'the gourmet street': 'zeugma',
+  'haru': 'zeugma',
+  "mey'hane": 'zeugma',
+  'meyhane (türk)': 'zeugma',
+  // Belvil
+  'belle vue': 'belvil',
+  'bloom lounge': 'belvil',
+  'blue bar': 'belvil',
+  'kanji': 'belvil',
+  'dolce vita': 'belvil',
+  'mirage pastane': 'belvil',
+  'bloom (steak & wine)': 'belvil',
+  'bloom (akdeniz)': 'belvil',
+  'mirage (italyan)': 'belvil',
+  // Ayscha
+  'ayscha ana restoran': 'ayscha',
+  'martini bar': 'ayscha',
+  'beach snack': 'ayscha',
+  'cafe harmony': 'ayscha',
+  'taco': 'ayscha',
+  'villa snack restoran': 'ayscha',
+  'surf & turf': 'ayscha',
+  'safran': 'ayscha',
+  'mikado': 'ayscha',
+  'coral': 'ayscha',
+  'viccolo': 'ayscha'
+};
+
+function normalizeText(text) {
+  return text.toLowerCase().replace(/[^a-zA-Z0-9ğüşöçıİĞÜŞÖÇ\s]/g, '').trim();
+}
+
 router.post('/tts', async (req, res) => {
         const { text, language = 'tr', gender = 'female' } = req.body;
         
@@ -44,8 +126,56 @@ router.post('/', async (req, res) => {
             return res.status(400).json({ error: 'Message is required' });
         }
 
-        // 1. Detect conversation context (hotel, language)
-        let hotel = await geminiService.detectHotelWithAI(message, history);
+        // 0. Her mesajda session context'i kontrol et (ÖNCE BUNU YAP!)
+        const sessionContext = await firebaseService.getSessionContext(session_id);
+        if (sessionContext.pending === 'hotel' && isHotelName(message)) {
+            if (sessionContext.lastMessage) {
+                // 1. Otel ve dil ile ilgili bilgi metnini çek
+                const knowledge = await firebaseService.searchKnowledge(message, 'tr');
+                // 2. Soru + bilgi metni ile Gemini'ye gönder
+                const fullQuestion = `${message} otelinde ${sessionContext.lastMessage}`;
+                const aiResponse = await geminiService.generateResponse(
+                    [{ role: 'user', content: fullQuestion }],
+                    knowledge?.content || '', // context
+                    'tr'
+                );
+                await firebaseService.setSessionContext(session_id, { pending: null, lastIntent: null });
+                return res.json({
+                    success: true,
+                    response: aiResponse.response,
+                    hotel: message
+                });
+            }
+            // Diğer intentler için de benzer şekilde ekleyebilirsiniz
+        }
+
+        // 1. Restoran/alan ismine göre otel tahmini (normalize ile)
+        let detectedHotelByRestaurant = null;
+        let detectedRestaurant = null;
+        const lowerMsg = normalizeText(message);
+        let matchedHotels = [];
+        for (const [restName, hotelName] of Object.entries(restaurantToHotel)) {
+          if (lowerMsg.includes(normalizeText(restName))) {
+            detectedRestaurant = restName;
+            if (Array.isArray(hotelName)) {
+              matchedHotels.push(...hotelName);
+            } else {
+              matchedHotels.push(hotelName);
+            }
+          }
+        }
+        matchedHotels = [...new Set(matchedHotels)]; // Tekilleştir
+        if (matchedHotels.length === 1) {
+          detectedHotelByRestaurant = matchedHotels[0];
+        } else if (matchedHotels.length > 1) {
+          // Birden fazla otel eşleşirse kullanıcıya sor
+          detectedHotelByRestaurant = null;
+        }
+        // 2. Otel tespiti: önce restoran haritası, sonra AI
+        let hotel = detectedHotelByRestaurant;
+        if (!hotel) {
+          hotel = await geminiService.detectHotelWithAI(message, history);
+        }
         let detectedLanguage = await geminiService.detectLanguage(message, history);
         if (!hotel) hotel = 'Unknown';
         if (!detectedLanguage) detectedLanguage = 'tr';
@@ -53,42 +183,103 @@ router.post('/', async (req, res) => {
         // Add user's message to history for this turn
         const chatHistory = [...history, { role: 'user', content: message }];
 
-        // Otel adı yazıldığında, history'de son assistant mesajı olmasa bile, bir önceki user mesajı bilgi sorgusuysa otel seçimi akışını başlat
+        // Soru mu? Selamlaşma/teşekkür/veda ise Gemini'ye hiç gönderme (ÖNCE BUNU YAP!)
+        const isQuestion = await questionAnalytics.isQuestion(message, detectedLanguage);
+
+        // --- CANLI DESTEK + OTEL ADI BİRLİKTEYSE ÖNCELİKLİ AKIŞ ---
+        const supportKeywords = [
+            'canlı destek', 'canlı yardım', 'müşteri hizmetleri', 'live support', 'live help', 'customer service', 'real person', 'operator', 'agent', 'bağlanmak istiyorum', 'yardım istiyorum', 'support', 'help', 'assistance', 'representative', 'talk to human', 'talk to operator', 'real agent', 'real person', 'живая поддержка', 'поддержка', 'помощь', 'служба поддержки'
+        ];
         const otelAdlari = ['belvil', 'zeugma', 'ayscha'];
-        const otelAdRegex = /(belvil|zeugma|ayscha)( otel| otelde| oteldeyim| otelde konaklıyorum)?/i;
-        const lastUserMsg = history.slice().reverse().find(m => m.role === 'user');
-        if ((otelAdlari.includes(message.toLowerCase().trim()) || otelAdRegex.test(message.toLowerCase())) && lastUserMsg) {
-            // Son user mesajı bir bilgi sorgusuysa (ör: info intent veya soru)
-            const llmAnalysis = await geminiService.analyzeUserIntent(lastUserMsg.content, history, detectedLanguage);
-            let amenity = llmAnalysis?.amenity || null;
-            let hotelMatch = message.match(/belvil|zeugma|ayscha/i);
-            let hotel = hotelMatch ? hotelMatch[0].charAt(0).toUpperCase() + hotelMatch[0].slice(1).toLowerCase() : message;
-            if (llmAnalysis?.intent === 'info' && amenity) {
+        // Otel adı cümlenin herhangi bir yerinde, farklı varyasyonlarda geçebilir
+        const otelAdRegex = /(belvil|zeugma|ayscha)(\s|\W|$)/i;
+        const supportMsgLower = message.toLowerCase();
+        const hasSupportKeyword = supportKeywords.some(kw => supportMsgLower.includes(kw));
+        // Fuzzy otel adı eşleşmesi
+        let fuzzyHotel = null;
+        let minDistance = 3;
+        for (const otel of otelAdlari) {
+          const words = supportMsgLower.split(/\s|\W/).filter(Boolean);
+          for (const word of words) {
+            const dist = levenshtein(word, otel);
+            if (dist < minDistance) {
+              minDistance = dist;
+              fuzzyHotel = otel;
+            }
+          }
+        }
+        if (!fuzzyHotel) {
+          // Regex ile de deneriz
+          const otelMatch = message.match(otelAdRegex);
+          if (otelMatch) fuzzyHotel = otelMatch[1].toLowerCase();
+        }
+        // Otel adı algılandıysa
+        if (fuzzyHotel) {
+            const hotel = fuzzyHotel.charAt(0).toUpperCase() + fuzzyHotel.slice(1).toLowerCase();
+            console.log('DEBUG: OTEL ADI ALGILANDI (fuzzy):', message, '→', hotel);
+            
+            // Eğer session context'te pending intent varsa, AI yanıtı üret
+            if (sessionContext.pending === 'hotel' && sessionContext.lastIntent === 'restaurant_info') {
+                console.log('🔥 Session context detected - generating AI response for hotel selection');
+                // 1. Otel ve dil ile ilgili bilgi metnini çek
                 const knowledge = await firebaseService.searchKnowledge(hotel, detectedLanguage);
-                const response = await geminiService.generateResponse(
-                    [...history, { role: 'user', content: lastUserMsg.content }],
-                    knowledge.content,
-                    detectedLanguage,
-                    null
+                // 2. Soru + bilgi metni ile Gemini'ye gönder
+                const fullQuestion = `${hotel} otelinde ${sessionContext.lastMessage}`;
+                const aiResponse = await geminiService.generateResponse(
+                    [{ role: 'user', content: fullQuestion }],
+                    knowledge?.content || '', // context
+                    detectedLanguage
+                );
+                await firebaseService.setSessionContext(session_id, { pending: null, lastIntent: null });
+                return res.json({
+                    success: true,
+                    response: aiResponse.response,
+                    hotel
+                });
+            }
+            
+            // Eğer mesajda hem otel adı hem de soru varsa (tek seferde), direkt AI yanıtı üret
+            if (fuzzyHotel && isQuestion) {
+                console.log('🔥 Hotel + Question detected in single message - generating AI response');
+                // 1. Otel ve dil ile ilgili bilgi metnini çek
+                const knowledge = await firebaseService.searchKnowledge(hotel, detectedLanguage);
+                // 2. Orijinal mesajı Gemini'ye gönder (otel adı zaten içinde)
+                const aiResponse = await geminiService.generateResponse(
+                    [{ role: 'user', content: message }],
+                    knowledge?.content || '', // context
+                    detectedLanguage
                 );
                 return res.json({
                     success: true,
-                    response: response.response,
+                    response: aiResponse.response,
+                    hotel
+                });
+            }
+            
+            // Eğer canlı destek anahtar kelimesi de varsa
+            if (hasSupportKeyword) {
+                let responseText = detectedLanguage === 'tr' ? 'Canlı desteğe bağlanmak istiyor musunuz?'
+                    : detectedLanguage === 'en' ? 'Do you want to connect to live support?'
+                    : detectedLanguage === 'de' ? 'Möchten Sie mit dem Live-Support verbunden werden?'
+                    : detectedLanguage === 'ru' ? 'Вы хотите подключиться к службе поддержки?'
+                    : 'Do you want to connect to live support?';
+                return res.json({
+                    success: true,
+                    response: responseText,
                     hotel,
-                    offerSupport: false,
+                    offerSupport: true,
                     needHotelSelection: false
                 });
             } else {
-                const knowledge = await firebaseService.searchKnowledge(hotel, detectedLanguage);
-                const response = await geminiService.generateResponse(
-                    [...history, { role: 'user', content: lastUserMsg.content }],
-                    knowledge.content,
-                    detectedLanguage,
-                    null
-                );
+                // Sadece otel adı yazıldıysa, otel seçimi olarak kabul et
+                let responseText = detectedLanguage === 'tr' ? 'Merhaba! ' + hotel + ' otelinde konaklıyorsunuz. Size nasıl yardımcı olabilirim?'
+                    : detectedLanguage === 'en' ? 'Hello! You are staying at ' + hotel + ' hotel. How can I help you?'
+                    : detectedLanguage === 'de' ? 'Hallo! Sie wohnen im ' + hotel + ' Hotel. Wie kann ich Ihnen helfen?'
+                    : detectedLanguage === 'ru' ? 'Здравствуйте! Вы остановились в отеле ' + hotel + '. Как я могу вам помочь?'
+                    : 'Hello! You are staying at ' + hotel + ' hotel. How can I help you?';
                 return res.json({
                     success: true,
-                    response: response.response,
+                    response: responseText,
                     hotel,
                     offerSupport: false,
                     needHotelSelection: false
@@ -97,7 +288,6 @@ router.post('/', async (req, res) => {
         }
 
         // Soru mu? Selamlaşma/teşekkür/veda ise Gemini'ye hiç gönderme
-        const isQuestion = await questionAnalytics.isQuestion(message, detectedLanguage);
         if (!isQuestion) {
             let greetingReply = 'Merhaba!';
             if (detectedLanguage === 'en') greetingReply = 'Hello!';
@@ -112,6 +302,21 @@ router.post('/', async (req, res) => {
 
         // isQuestion kontrolünden hemen sonra locationAnalysis'ı tanımla
         let locationAnalysis = await geminiService.analyzeLocationQuery(message, history, detectedLanguage);
+
+        // Eğer otel adı eksikse ve restoran/amenity soruluyorsa, context'e pending yaz
+        // (örnek: restoran sorusu, otel adı yok)
+        if ((message.toLowerCase().includes('restoran') || message.toLowerCase().includes('restaurant')) && (!hotel || hotel === 'Unknown')) {
+            await firebaseService.setSessionContext(session_id, {
+                pending: 'hotel',
+                lastIntent: 'restaurant_info',
+                lastMessage: message
+            });
+            return res.json({
+                success: true,
+                response: 'Hangi Papillon Hotels otelinde konaklıyorsunuz? Belvil, Zeugma ve Ayscha otellerimizden hangisinde olduğunuzu belirtirseniz, restoranlar hakkında bilgi verebilirim.',
+                needHotelSelection: true
+            });
+        }
 
         // Log the question for analytics
         const questionId = await firebaseService.logQuestionForAnalysis({
@@ -130,22 +335,31 @@ router.post('/', async (req, res) => {
             try {
                 console.log(`🔍 Starting real-time analysis for question: ${questionId}`);
                 
-                // Anında isQuestion kontrolü
-                const isQuestion = await questionAnalytics.isQuestion(message, detectedLanguage);
+                        // İlk isQuestion kontrolünü kullan (çifte kontrol yok)
                 console.log(`❓ Is question "${message}": ${isQuestion}`);
                 
                 if (isQuestion) {
-                    // Anında kategorizasyon
-                    const categorization = await questionAnalytics.categorizeQuestion(message);
-                    console.log(`📊 Categorization for "${message}":`, categorization);
-                    
-                    // Firebase'i güncelle
+            // Anında kategorizasyon + embedding (optimized)
+            const categorizationWithEmbedding = await questionAnalytics.categorizeQuestionWithEmbedding(message);
+            console.log(`📊 Categorization + Embedding for "${message}":`, {
+                category: categorizationWithEmbedding.category,
+                facility: categorizationWithEmbedding.facility,
+                hasEmbedding: !!categorizationWithEmbedding.embedding
+            });
+            
+            // Firebase'i güncelle (hem kategorizasyon hem embedding)
                     await firebaseService.updateQuestionAnalytics(questionId, {
                         isQuestion: true,
-                        categorization,
+                categorization: {
+                    category: categorizationWithEmbedding.category,
+                    facility: categorizationWithEmbedding.facility,
+                    intent: categorizationWithEmbedding.intent
+                },
                         preprocessed: true,
-                        category: categorization.category,
-                        facility: categorization.facility,
+                category: categorizationWithEmbedding.category,
+                facility: categorizationWithEmbedding.facility,
+                embedding: categorizationWithEmbedding.embedding,
+                semantic_keywords: categorizationWithEmbedding.semantic_keywords,
                         analyzedAt: new Date().toISOString()
                     });
                     
@@ -157,8 +371,8 @@ router.post('/', async (req, res) => {
                         text: message,
                         hotel,
                         language: detectedLanguage,
-                        category: categorization.category,
-                        facility: categorization.facility,
+                category: categorizationWithEmbedding.category,
+                facility: categorizationWithEmbedding.facility,
                         isQuestion: true
                     });
                 } else {
@@ -185,6 +399,10 @@ router.post('/', async (req, res) => {
         let needHotelSelection = llmAnalysis?.needHotelSelection || false;
         let hotelFromLLM = llmAnalysis?.hotel || null;
         if (!hotel || hotel === 'Unknown') hotel = hotelFromLLM || hotel;
+        // Eğer canlı destek + otel adı varyasyonu aktifse, needHotelSelection tekrar true olmasın
+        if (offerSupport && hotel && otelAdlari.includes(hotel.toLowerCase())) {
+            needHotelSelection = false;
+        }
 
         // Support niyetini sadece bariz anahtar kelimelerle sınırla
         const supportKeywordsStrict = [
@@ -263,6 +481,8 @@ router.post('/', async (req, res) => {
 
         // Otel içi olanak ve otel adı yoksa, LLM flag'lerine göre akış
         if (amenity && (hotel === 'Unknown' || !hotel) && needHotelSelection) {
+            // Eğer canlı destek niyeti varsa butonlu akış
+            if (offerSupport) {
             return res.json({
                 success: true,
                 response: detectedLanguage === 'tr' ? 'Hangi Papillon Hotels otelinde konaklıyorsunuz? Belvil, Zeugma ve Ayscha otellerimizden hangisinde olduğunuzu belirtirseniz, ' + amenity + ' hakkında bilgi verebilirim.' :
@@ -273,20 +493,41 @@ router.post('/', async (req, res) => {
                 offerSupport: true,
                 needHotelSelection: true
             });
+            } else {
+                // Sadece metinle otel sorusu dön, buton flag'leri olmadan
+                return res.json({
+                    success: true,
+                    response: detectedLanguage === 'tr' ? 'Hangi Papillon Hotels otelinde konaklıyorsunuz? Belvil, Zeugma ve Ayscha otellerimizden hangisinde olduğunuzu belirtirseniz, ' + amenity + ' hakkında bilgi verebilirim.' :
+                              detectedLanguage === 'en' ? 'Which Papillon Hotels property are you staying at? Please specify Belvil, Zeugma, or Ayscha so I can provide information about ' + amenity + '.' :
+                              detectedLanguage === 'de' ? 'In welchem Papillon Hotels wohnen Sie? Bitte geben Sie Belvil, Zeugma oder Ayscha an, damit ich Ihnen Informationen zu ' + amenity + ' geben kann.' :
+                              detectedLanguage === 'ru' ? 'В каком отеле Papillon Hotels вы остановились? Пожалуйста, укажите Belvil, Zeugma или Ayscha, чтобы я мог предоставить информацию о ' + amenity + '.' :
+                              'Which Papillon Hotels property are you staying at?'
+                });
+            }
         }
 
         // CANLI DESTEK TALEBİ VARSA, LOKASYON ANALİZİ VE DİĞERLERİ ATLANSIN
-        let response;
+        let geminiResponse;
         let responseText;
         // Canlı destek isteği kontrolü için önce knowledge'ı al
         const knowledge = await firebaseService.searchKnowledge(hotel, detectedLanguage);
-        response = await geminiService.generateResponse(
+        if (knowledge && detectedRestaurant) {
+          // Sadece ilgili restoran chunk'larını filtrele
+          const filteredChunks = Object.entries(knowledge.fbChunks || {})
+            .filter(([key]) => normalizeText(key).includes(normalizeText(detectedRestaurant)))
+            .map(([, chunks]) => chunks)
+            .flat();
+          if (filteredChunks.length > 0) {
+            knowledge.content = filteredChunks.map(chunk => chunk.text).join('\n');
+          }
+        }
+        geminiResponse = await geminiService.generateResponse(
             chatHistory,
             knowledge.content,
             detectedLanguage,
             userLocation
         );
-        responseText = response.response;
+        responseText = geminiResponse.response;
         if (responseText && responseText.includes('[DESTEK_TALEBI]')) {
             offerSupport = true;
             if (hotel === 'Unknown') {
@@ -330,20 +571,20 @@ router.post('/', async (req, res) => {
             'Если вам интересно, я могу предоставить больше информации из нашего СПА-каталога.'
         ];
         const spaKeywords = ['spa', 'wellness', 'masaj', 'massage', 'bakım', 'treatment'];
-        if (response && response.response) {
+        if (geminiResponse && geminiResponse.response) {
             // Sadece amenity ve facility alanlarına bak
             const amenityOrFacility = ((amenity || '') + ' ' + (llmAnalysis?.facility || '')).toLowerCase();
             const isSpaContext = spaKeywords.some(kw => amenityOrFacility.includes(kw));
             spaCatalogOfferSentences.forEach(sentence => {
-                if (!isSpaContext && response.response.includes(sentence)) {
-                    response.response = response.response.replace(sentence, '').replace(/\s{2,}/g, ' ').trim();
+                if (!isSpaContext && geminiResponse.response.includes(sentence)) {
+                    geminiResponse.response = geminiResponse.response.replace(sentence, '').replace(/\s{2,}/g, ' ').trim();
                 }
             });
         }
 
         return res.json({
             success: true,
-            response: response.response,
+            response: geminiResponse.response,
             offerSupport,
             hotel: hotel !== 'Unknown' ? hotel : undefined,
             needHotelSelection

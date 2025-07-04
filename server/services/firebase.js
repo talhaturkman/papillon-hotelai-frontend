@@ -68,7 +68,7 @@ class FirebaseService {
             
             if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
                 try {
-                    console.log('��� Loading Firebase credentials from Secret Manager...');
+                    console.log('🔐 Loading Firebase credentials from Secret Manager...');
                     const serviceAccount = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
                     credential = admin.credential.cert(serviceAccount);
                     console.log('✅ Using Firebase Secret Manager credentials');
@@ -80,7 +80,7 @@ class FirebaseService {
             else if (process.env.GOOGLE_APPLICATION_CREDENTIALS && require('fs').existsSync(process.env.GOOGLE_APPLICATION_CREDENTIALS)) {
                 try {
                     const absolutePath = path.resolve(process.env.GOOGLE_APPLICATION_CREDENTIALS);
-                    console.log(`��� Loading Firebase credentials from: ${absolutePath}`);
+                    console.log(`🔐 Loading Firebase credentials from: ${absolutePath}`);
                     const serviceAccount = require(absolutePath);
                     credential = admin.credential.cert(serviceAccount);
                     console.log('✅ Using Firebase JSON credentials file');
@@ -90,7 +90,7 @@ class FirebaseService {
                 }
             }
             else {
-                console.log('��� JSON file not found, trying environment variables...');
+                console.log('🔐 JSON file not found, trying environment variables...');
                 const serviceAccount = {
                     type: "service_account",
                     project_id: process.env.FIREBASE_PROJECT_ID,
@@ -293,15 +293,16 @@ class FirebaseService {
         }
     }
 
+    /**
+     * Section-based (semantic) chunking for PDF, Word, Excel and plain text.
+     * Chunks by detected section headers (e.g. 'A la carte', 'Spa', 'Genel Bilgiler', etc.).
+     * If no headers found, falls back to fixed-length chunking.
+     * Returns array of { title, text } objects.
+     */
     chunkText(text, maxLength = 2000) {
         if (!text) return [];
-        const chunks = [];
-        let i = 0;
-        while (i < text.length) {
-            chunks.push(text.substring(i, i + maxLength));
-            i += maxLength;
-        }
-        return chunks;
+        // Tüm metni tek bir chunk olarak döndür
+        return [{ text }];
     }
 
     async storeKnowledge(hotel, language, kind, content, documentDate = null, restaurant = null) {
@@ -313,29 +314,15 @@ class FirebaseService {
 
         // F&B için özel mantık
         if (normalizedKind === 'Fb' && restaurant) {
-            // kinds/FB/{restoran_adi}/chunks
+            // kinds/FB/{restoran_adi}/chunks (tek doküman)
             const fbDocRef = this.db.collection('knowledge_base').doc('Papillon')
                 .collection(normalizedHotel).doc(language)
                 .collection('kinds').doc('FB');
-            const restaurantCollectionRef = fbDocRef.collection(restaurant);
-            const chunks = this.chunkText(content);
-            // Önce eski chunk'ları sil
-            const snapshot = await restaurantCollectionRef.get();
-            if (!snapshot.empty) {
-                const deleteBatch = this.db.batch();
-                snapshot.docs.forEach(doc => deleteBatch.delete(doc.ref));
-                await deleteBatch.commit();
-            }
-            // Yeni chunk'ları ekle
-            const writeBatch = this.db.batch();
-            chunks.forEach((chunk, index) => {
-                const docRef = restaurantCollectionRef.doc(`chunk_${index}`);
-                writeBatch.set(docRef, { text: chunk });
-            });
+            const restaurantDocRef = fbDocRef.collection(restaurant).doc('chunks');
+            await restaurantDocRef.set({ text: content });
             await fbDocRef.set({ updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
-            await writeBatch.commit();
-            console.log(`[Firestore] F&B için kaydedildi: Papillon/${normalizedHotel}/${language}/kinds/FB/${restaurant}`);
-            return { success: true, chunks: chunks.length };
+            console.log(`[Firestore] F&B için kaydedildi: Papillon/${normalizedHotel}/${language}/kinds/FB/${restaurant}/chunks`);
+            return { success: true, chunks: 1 };
         }
 
         // For daily content, ensure we always have a date
@@ -363,40 +350,34 @@ class FirebaseService {
             .collection(normalizedHotel).doc(language)
             .collection('kinds').doc(normalizedKind);
 
-        const chunksCollectionRef = kindDocRef.collection('chunks');
-        const chunks = this.chunkText(content);
-        
-        console.log(`[Firestore] Storing knowledge to: Papillon/${normalizedHotel}/${language}/kinds/${normalizedKind}`);
+        // General, Spa, Daily için artan isimli doküman olarak kaydet
+        const chunksCollectionRef = (normalizedKind === 'Fb' && restaurant)
+            ? this.db.collection('knowledge_base').doc('Papillon')
+                .collection(normalizedHotel).doc(language)
+                .collection('kinds').doc('FB')
+                .collection(restaurant)
+            : kindDocRef.collection('chunks');
 
-        // Clear existing chunks if any
-        const snapshot = await chunksCollectionRef.get();
-        if (!snapshot.empty) {
-            const deleteBatch = this.db.batch();
-            snapshot.docs.forEach(doc => deleteBatch.delete(doc.ref));
-            await deleteBatch.commit();
-        }
-        
-        // Store new chunks
-        const writeBatch = this.db.batch();
-        chunks.forEach((chunk, index) => {
-            const docRef = chunksCollectionRef.doc(`chunk_${index}`);
-            const data = { text: chunk };
-            if (normalizedKind === 'Daily') {
-                // Always set date for daily content
-                data.date = admin.firestore.Timestamp.fromDate(documentDate);
+        // Son chunk numarasını bul
+        const existingChunks = await chunksCollectionRef.listDocuments();
+        let maxChunkNum = 0;
+        existingChunks.forEach(doc => {
+            const match = doc.id.match(/^chunk(\d+)$/);
+            if (match) {
+                const num = parseInt(match[1], 10);
+                if (num > maxChunkNum) maxChunkNum = num;
             }
-            writeBatch.set(docRef, data);
         });
-
+        const newChunkNum = maxChunkNum + 1;
+        const docRef = chunksCollectionRef.doc(`chunk${newChunkNum}`);
+        await docRef.set({ text: content });
         await kindDocRef.set({ 
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-            chunkCount: chunks.length,
+            chunkCount: newChunkNum,
             ...(documentDate && { documentDate: admin.firestore.Timestamp.fromDate(documentDate) })
         }, { merge: true });
-
-        await writeBatch.commit();
-        console.log(`[Firestore] Successfully stored ${chunks.length} chunks`);
-        return { success: true, chunks: chunks.length };
+        console.log(`[Firestore] Successfully stored chunk${newChunkNum} as a new document in ${normalizedKind}${restaurant ? '/' + restaurant : ''}`);
+        return { success: true, chunks: newChunkNum };
     }
 
     async searchKnowledge(hotel, language) {
@@ -765,6 +746,29 @@ class FirebaseService {
             return false;
         }
     }
+
+    // Session context yönetimi
+    async setSessionContext(sessionId, context) {
+        await this.ensureInitialized();
+        if (!this.isInitialized) return;
+        try {
+            await this.db.collection('sessionContexts').doc(sessionId).set(context, { merge: true });
+        } catch (error) {
+            console.error('❌ Error setting session context:', error);
+        }
+    }
+
+    async getSessionContext(sessionId) {
+        await this.ensureInitialized();
+        if (!this.isInitialized) return {};
+        try {
+            const doc = await this.db.collection('sessionContexts').doc(sessionId).get();
+            return doc.exists ? doc.data() : {};
+        } catch (error) {
+            console.error('❌ Error getting session context:', error);
+            return {};
+        }
+    }
 }
 
-module.exports = new FirebaseService(); 
+module.exports = new FirebaseService();

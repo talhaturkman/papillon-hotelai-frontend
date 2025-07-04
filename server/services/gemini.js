@@ -89,83 +89,34 @@ class GeminiService {
 
         try {
             const getSystemPrompt = (lang, context) => {
+                // Menüyle ilgili özel prompt ekle
+                const menuKeywords = ['menü', 'menu', 'yemek', 'içecek', 'detailed menu', 'detaylı menü'];
+                let lastUserMsg = '';
+                if (history && history.length > 0) {
+                  const lastUser = history.filter(h => h.role === 'user').pop();
+                  if (lastUser) lastUserMsg = lastUser.content.toLowerCase();
+                }
+                const isMenuQuery = menuKeywords.some(k => lastUserMsg.includes(k));
+                let extraMenuPrompt = '';
+                if (isMenuQuery) {
+                    const menuPrompts = {
+                        'tr': '\nÖZEL KURAL: Eğer kullanıcı menüyle ilgili bir şey soruyorsa, chunk\'larda geçen menü başlıklarını ve içeriklerini öncelikli olarak kullan ve menüdeki ürünleri/detayları açıkça listele. Menüde ürün yoksa, "Bu konuda detaylı bilgim yok." de.',
+                        'en': '\nSPECIAL RULE: If the user asks about menus, prioritize using menu titles and contents from the chunks and clearly list the products/details in the menu. If there are no products in the menu, say "I don\'t have detailed information on this topic."',
+                        'de': '\nBESONDERE REGEL: Wenn der Benutzer nach Speisekarten fragt, priorisieren Sie die Verwendung von Menütiteln und -inhalten aus den Chunks und listen Sie die Produkte/Details in der Speisekarte klar auf. Wenn keine Produkte in der Speisekarte vorhanden sind, sagen Sie "Ich habe keine detaillierten Informationen zu diesem Thema."',
+                        'ru': '\nОСОБОЕ ПРАВИЛО: Если пользователь спрашивает о меню, приоритетно используйте заголовки и содержимое меню из чанков и четко перечислите продукты/детали в меню. Если в меню нет продуктов, скажите "У меня нет подробной информации по этой теме."'
+                    };
+                    extraMenuPrompt = menuPrompts[lang] || menuPrompts['tr'];
+                }
                 if (context && context.trim().length > 0) {
                     const prompts = {
                         'tr': `Bir otel asistanısınız. Kullanıcının sorusunu SADECE aşağıdaki Bilgi Metnini kullanarak yanıtlayın.
 ÖNEMLİ ZAMAN KURALI: Bilgi Metni, "### Günlük Bilgiler (Bugün) ###" ve "### Günlük Bilgiler (Dün) ###" bölümlerini içerebilir. Her zaman (Bugün) bölümündeki bilgilere öncelik verin. Cevap sadece (Dün) bölümünde ise, cevap verirken bilginin dünden olduğunu BELİRTMELİSİNİZ (örneğin, "Dünkü programa göre...").
+ÖNEMLİ CHUNK KURALI: Kullanıcı belirli bir alan hakkında soru soruyorsa (restoran, menü, spa, havuz, aktivite vb.), önce o alana özel chunk'ları kontrol edin. Eğer cevap orada bulunamazsa, son çare olarak o otel için tüm genel bilgi chunk'larını kontrol edin ve orada bulunan ilgili bilgileri kullanın. Hiçbir yerde bilgi bulunamazsa, "Bu konuda detaylı bilgim yok." deyin.
 Metin ayrıca bir "### SPA Bilgileri ###" bölümü de içerebilir. SADECE kullanıcı SPA, wellness, masaj veya bakım ile ilgili bir şey sorduysa bu bölümü kullanın ve cevabın sonuna "Eğer ilgilenirseniz, SPA kataloğumuzdan daha fazla detay verebilirim." cümlesini ekleyin. Diğer tüm sorularda SPA Bilgileri bölümünü asla kullanmayın veya referans vermeyin.
-Diğer tüm sorular için metnin tamamını kullanabilirsiniz. Cevap metinde yoksa, "Bu konuda detaylı bilgim yok." deyin. Bilgi Metni farklı bir dilde olabilir; cevabınız DAİMA TÜRKÇE olmalıdır. KULLANICI BİR İNSANLA GÖRÜŞMEK İSTERSE, SADECE ŞUNU YAZIN: [DESTEK_TALEBI]. ### Bilgi Metni ###
-${context}
-### Bilgi Metni Sonu ###`,
-                        'en': `You are a hotel assistant. Answer the user's question using ONLY the Information Text below.
-IMPORTANT TIME RULE: The Information Text may contain "### Daily Information (Today) ###" and "### Daily Information (Yesterday) ###" sections. Always prioritize information from the (Today) section. If the answer is only in the (Yesterday) section, you MUST state that the information is from yesterday when you answer (e.g., "According to yesterday's schedule...").
-The text may also contain a "### SPA Information ###" section. Use this section to answer any questions about the spa, wellness, massages, or treatments. If you use the SPA Information section, after providing the answer, you MUST also ask, "If you are interested, I can provide more details from our SPA catalog."
-For all other questions, you can use the entire text. If the answer is not in the text, say "I don't have detailed information on this topic." The Information Text may be in a different language; you must translate it to ENGLISH.
-IF THE USER EXPRESSES ANY OF THE FOLLOWING INTENTS, RESPOND ONLY WITH: [DESTEK_TALEBI]
-Examples:
-- Live support
-- I want live support
-- I want to talk to a real person
-- I want to speak to customer service
-- I want support
-- Support
-- Customer service
-- Help
-- Talk to human
-- Talk to operator
-- I want to talk to a human
-- I want to talk to an operator
-- Я хочу поговорить с человеком
-- Ich möchte mit einem Menschen sprechen
-etc.
-### Information Text ###\n${context}\n### End of Information Text ###`,
-                        'de': `Sie sind ein Hotelassistent. Beantworten Sie die Frage des Benutzers NUR mit dem unten stehenden Informationstext.
-WICHTIGE ZEITREGEL: Der Informationstext kann die Abschnitte "### Tägliche Informationen (Heute) ###" und "### Tägliche Informationen (Gestern) ###" enthalten. Priorisieren Sie immer Informationen aus dem Abschnitt (Heute). Wenn die Antwort nur im Abschnitt (Gestern) enthalten ist, MÜSSEN Sie bei der Antwort angeben, dass die Informationen von gestern stammen (z. B. "Laut dem gestrigen Programm...").
-Der Text kann auch einen Abschnitt "### SPA-Informationen ###" enthalten. Verwenden Sie diesen Abschnitt, um alle Fragen zum Spa, Wellness, Massagen oder Behandlungen zu beantworten. Wenn Sie den Abschnitt "SPA-Informationen" verwenden, MÜSSEN Sie nach der Antwort auch fragen: "Wenn Sie interessiert sind, kann ich Ihnen weitere Details aus unserem SPA-Katalog geben."
-Für alle anderen Fragen können Sie den gesamten Text verwenden. Wenn die Antwort nicht im Text enthalten ist, sagen Sie "Ich habe keine detaillierten Informationen zu diesem Thema." Der Informationstext kann in einer anderen Sprache sein; Ihre Antwort MUSS IMMER auf DEUTSCH sein.
-WENN DER BENUTZER EINE DER FOLGENDEN ABSICHTEN ÄUSSERT, ANTWORTEN SIE AUSSCHLIESSLICH MIT: [DESTEK_TALEBI]
-Beispiele:
-- Live-Support
-- Ich möchte mit einem Menschen sprechen
-- Ich möchte mit dem Kundenservice sprechen
-- Support
-- Kundenservice
-- Hilfe
-- Mit einem Menschen sprechen
-- Mit einem Operator sprechen
-- Я хочу поговорить с человеком
-- I want live support
-- I want to talk to a real person
-usw.
-### Informationstext ###\n${context}\n### Ende des Informationstextes ###`,
-                        'ru': `Вы гостиничный ассистент. Отвечайте на вопрос пользователя, используя ТОЛЬКО приведенный ниже Информационный Текст.
-ВАЖНОЕ ПРАВИЛО ВРЕМЕНИ: Информационный Текст может содержать разделы "### Ежедневная информация (Сегодня) ###" и "### Ежедневная информация (Вчера) ###". Всегда отдавайте приоритет информации из раздела (Сегодня). Если ответ есть только в разделе (Вчера), вы ДОЛЖНЫ указать, что эта информация за вчерашний день, когда отвечаете (например, "Согласно вчерашнему расписанию...").
-Текст также может содержать раздел "### Информация о СПА ###". Используйте этот раздел для ответов на любые вопросы о спа, оздоровлении, массаже или процедурах. Если вы используете раздел "Информация о СПА", после ответа вы ДОЛЖНЫ также спросить: "Если вам интересно, я могу предоставить больше информации из нашего СПА-каталога."
-Для всех остальных вопросов вы можете использовать весь текст. Если ответ не содержится в тексте, скажите "У меня нет подробной информации по этой теме." Информационный текст может быть на другом языке; ваш ответ ВСЕГДА ДОЛЖЕН БЫТЬ на РУССКОМ.
-ЕСЛИ ПОЛЬЗОВАТЕЛЬ ВЫРАЖАЕТ ЛЮБУЮ ИЗ СЛЕДУЮЩИХ НАМЕРЕНИЙ, ОТВЕЧАЙТЕ ИСКЛЮЧИТЕЛЬНО: [DESTEK_TALEBI]
-Примеры:
-- Я хочу поговорить с человеком
-- Я хочу поговорить с оператором
-- Служба поддержки
-- Поддержка
-- Помощь
-- Я хочу поговорить с реальным человеком
-- Я хочу связаться с оператором
-- Support
-- Customer service
-- Help
-- Live support
-- I want live support
-- I want to talk to a real person
-- Ich möchte mit einem Menschen sprechen
-и т.д.
-### Информационный текст ###\n${context}\n### Конец информационного текста ###`,
-                        'tr': `Bir otel asistanısınız. Kullanıcının sorusunu SADECE aşağıdaki Bilgi Metnini kullanarak yanıtlayın.
-ÖNEMLİ ZAMAN KURALI: Bilgi Metni, "### Günlük Bilgiler (Bugün) ###" ve "### Günlük Bilgiler (Dün) ###" bölümlerini içerebilir. Her zaman (Bugün) bölümündeki bilgilere öncelik verin. Cevap sadece (Dün) bölümünde ise, cevap verirken bilginin dünden olduğunu BELİRTMELİSİNİZ (örneğin, "Dünkü programa göre...").
-Metin ayrıca bir "### SPA Bilgileri ###" bölümü de içerebilir. SADECE kullanıcı SPA, wellness, masaj veya bakım ile ilgili bir şey sorduysa bu bölümü kullanın ve cevabın sonuna "Eğer ilgilenirseniz, SPA kataloğumuzdan daha fazla detay verebilirim." cümlesini ekleyin. Diğer tüm sorularda SPA Bilgileri bölümünü asla kullanmayın veya referans vermeyin.
-Diğer tüm sorular için metnin tamamını kullanabilirsiniz. Cevap metinde yoksa, "Bu konuda detaylı bilgim yok." deyin. Bilgi Metni farklı bir dilde olabilir; cevabınız DAİMA TÜRKÇE olmalıdır. KULLANICI BİR İNSANLA GÖRÜŞMEK İSTERSE, SADECE ŞUNU YAZIN: [DESTEK_TALEBI]. ### Bilgi Metni ###
-${context}
-### Bilgi Metni Sonu ###`,
+Diğer tüm sorular için metnin tamamını kullanabilirsiniz. Cevap metinde yoksa, "Bu konuda detaylı bilgim yok." deyin. Bilgi Metni farklı bir dilde olabilir; cevabınız DAİMA TÜRKÇE olmalıdır. KULLANICI BİR İNSANLA GÖRÜŞMEK İSTERSE, SADECE ŞUNU YAZIN: [DESTEK_TALEBI].${extraMenuPrompt}\n### Bilgi Metni ###\n${context}\n### Bilgi Metni Sonu ###`,
+                        'en': `You are a hotel assistant. Answer the user's question using ONLY the Information Text below.\nIMPORTANT TIME RULE: The Information Text may contain "### Daily Information (Today) ###" and "### Daily Information (Yesterday) ###" sections. Always prioritize information from the (Today) section. If the answer is only in the (Yesterday) section, you MUST state that the information is from yesterday when you answer (e.g., "According to yesterday's schedule...").\nIMPORTANT CHUNK RULE: If the user has provided or the system has detected a hotel name, first check the chunks related to the specific area the user is asking about (e.g., restaurant, menu, spa, pool, activity vb.). If the answer is not found there, as a last resort, check all general information chunks for that hotel and use any relevant information found there. If no information is found anywhere, say "I don't have detailed information on this topic."\nThe text may also contain a "### SPA Information ###" section. Use this section to answer any questions about the spa, wellness, massages, or treatments. If you use the SPA Information section, after providing the answer, you MUST also ask, "If you are interested, I can provide more details from our SPA catalog."\nFor all other questions, you can use the entire text. If the answer is not in the text, say "I don't have detailed information on this topic." The Information Text may be in a different language; you must translate it to ENGLISH.\nIF THE USER EXPRESSES ANY OF THE FOLLOWING INTENTS, RESPOND ONLY WITH: [DESTEK_TALEBI]\nExamples:\n- Live support\n- I want live support\n- I want to talk to a real person\n- I want to speak to customer service\n- I want support\n- Support\n- Customer service\n- Help\n- Talk to human\n- Talk to operator\n- I want to talk to a human\n- I want to talk to an operator\n- Я хочу поговорить с человеком\n- Ich möchte mit einem Menschen sprechen\netc.\n${extraMenuPrompt}\n### Information Text ###\n${context}\n### End of Information Text ###`,
+                        'de': `Sie sind ein Hotelassistent. Beantworten Sie die Frage des Benutzers NUR mit dem unten stehenden Informationstext.\nWICHTIGE ZEITREGEL: Der Informationstext kann die Abschnitte "### Tägliche Informationen (Heute) ###" und "### Tägliche Informationen (Gestern) ###" enthalten. Priorisieren Sie immer Informationen aus dem Abschnitt (Heute). Wenn die Antwort nur im Abschnitt (Gestern) enthalten ist, MÜSSEN Sie bei der Antwort angeben, dass die Informationen von gestern stammen (z. B. "Laut dem gestrigen Programm...").\nWICHTIGE CHUNK-REGEL: Wenn der Benutzer einen Hotelnamen angegeben hat oder das System einen Hotelnamen erkannt hat, überprüfen Sie zuerst die Chunks, die sich auf den spezifischen Bereich beziehen, nach dem der Benutzer fragt (z. B. Restaurant, Speisekarte, Spa, Pool, Aktivität usw.). Wenn die Antwort dort nicht gefunden wird, überprüfen Sie als letzten Ausweg alle allgemeinen Informationschunks für dieses Hotel und verwenden Sie alle dort gefundenen relevanten Informationen. Wenn nirgendwo Informationen gefunden werden, sagen Sie "Ich habe keine detaillierten Informationen zu diesem Thema."\nDer Text kann auch einen Abschnitt "### SPA-Informationen ###" enthalten. Verwenden Sie diesen Abschnitt, um alle Fragen zum Spa, Wellness, Massagen oder Behandlungen zu beantworten. Wenn Sie den Abschnitt "SPA-Informationen" verwenden, MÜSSEN Sie nach der Antwort auch fragen: "Wenn Sie interessiert sind, kann ich Ihnen weitere Details aus unserem SPA-Katalog geben."\nFür alle anderen Fragen können Sie den gesamten Text verwenden. Wenn die Antwort nicht im Text enthalten ist, sagen Sie "Ich habe keine detaillierten Informationen zu diesem Thema." Der Informationstext kann in einer anderen Sprache sein; Ihre Antwort MUSS IMMER auf DEUTSCH sein.\nWENN DER BENUTZER EINE DER FOLGENDEN ABSICHTEN ÄUSSERT, ANTWORTEN SIE AUSSCHLIESSLICH MIT: [DESTEK_TALEBI]\nBeispiele:\n- Live-Support\n- Ich möchte mit einem Menschen sprechen\n- Ich möchte mit dem Kundenservice sprechen\n- Support\n- Kundenservice\n- Hilfe\n- Mit einem Menschen sprechen\n- Mit einem Operator sprechen\n- Я хочу поговорить с человеком\n- I want live support\n- I want to talk to a real person\nusw.\n${extraMenuPrompt}\n### Informationstext ###\n${context}\n### Ende des Informationstextes ###`,
+                        'ru': `Вы гостиничный ассистент. Отвечайте на вопрос пользователя, используя ТОЛЬКО приведенный ниже Информационный Текст.\nВАЖНОЕ ПРАВИЛО ВРЕМЕНИ: Информационный Текст может содержать разделы "### Ежедневная информация (Сегодня) ###" и "### Ежедневная информация (Вчера) ###". Всегда отдавайте приоритет информации из раздела (Сегодня). Если ответ есть только в разделе (Вчера), вы ДОЛЖНЫ указать, что эта информация за вчерашний день, когда отвечаете (например, "Согласно вчерашнему расписанию...").\nВАЖНОЕ ПРАВИЛО ЧАНКОВ: Если пользователь указал название отеля или система определила название отеля, сначала проверьте чанки, связанные с конкретной областью, о которой спрашивает пользователь (например, ресторан, меню, спа, бассейн, активность и т.д.). Если ответ там не найден, в крайнем случае проверьте все общие информационные чанки для этого отеля и используйте любую найденную там релевантную информацию. Если нигде не найдена информация, скажите "У меня нет подробной информации по этой теме."\nТекст также может содержать раздел "### Информация о СПА ###". Используйте этот раздел для ответов на любые вопросы о спа, оздоровлении, массаже или процедурах. Если вы используете раздел "Информация о СПА", после ответа вы ДОЛЖНЫ также спросить: "Если вам интересно, я могу предоставить больше информации из нашего СПА-каталога."\nДля всех остальных вопросов вы можете использовать весь текст. Если ответ не содержится в тексте, скажите "У меня нет подробной информации по этой теме." Информационный текст может быть на другом языке; ваш ответ ВСЕГДА ДОЛЖЕН БЫТЬ на РУССКОМ.\nЕСЛИ ПОЛЬЗОВАТЕЛЬ ВЫРАЖАЕТ ЛЮБУЮ ИЗ СЛЕДУЮЩИХ НАМЕРЕНИЙ, ОТВЕЧАЙТЕ ИСКЛЮЧИТЕЛЬНО: [DESTEK_TALEBI]\nПримеры:\n- Я хочу поговорить с человеком\n- Я хочу поговорить с оператором\n- Служба поддержки\n- Поддержка\n- Помощь\n- Я хочу поговорить с реальным человеком\n- Я хочу связаться с оператором\n- Support\n- Customer service\n- Help\n- Live support\n- I want live support\n- I want to talk to a real person\n- Ich möchte mit einem Menschen sprechen\nи т.д.\n${extraMenuPrompt}\n### Информационный текст ###\n${context}\n### Конец информационного текста ###`,
                     };
                     return prompts[lang] || prompts['tr'];
                 }
@@ -338,7 +289,39 @@ ${context}
         return null;
     }
 
+    static levenshtein(a, b) {
+        if (a.length === 0) return b.length;
+        if (b.length === 0) return a.length;
+        const matrix = [];
+        for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+        for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+        for (let i = 1; i <= b.length; i++) {
+            for (let j = 1; j <= a.length; j++) {
+                if (b.charAt(i - 1) === a.charAt(j - 1)) {
+                    matrix[i][j] = matrix[i - 1][j - 1];
+                } else {
+                    matrix[i][j] = Math.min(
+                        matrix[i - 1][j - 1] + 1, // substitution
+                        matrix[i][j - 1] + 1,     // insertion
+                        matrix[i - 1][j] + 1      // deletion
+                    );
+                }
+            }
+        }
+        return matrix[b.length][a.length];
+    }
+
+    static fuzzyIncludes(msg, keywords, maxDistance = 2) {
+        // Hem kelime bazlı hem de substring bazlı kontrol
+        const words = msg.split(/\s+/);
+        return keywords.some(keyword =>
+            msg.includes(keyword) || // substring olarak geçiyorsa
+            words.some(word => GeminiService.levenshtein(word, keyword) <= maxDistance)
+        );
+    }
+
     async analyzeLocationQuery(message, history, language = 'tr') {
+        console.log('DEBUG analyzeLocationQuery called:', message);
         // Parametreleri güvenli hale getir
         const safeMessage = typeof message === 'string' ? message : '';
         const safeLanguage = typeof language === 'string' ? language : 'tr';
@@ -348,14 +331,14 @@ ${context}
             'aquapark', 'aqua park', 'havuz', 'spa', 'restoran', 'restaurant', 'bar', 'gym', 'fitness', 'çocuk kulübü', 'kids club', 'hamam', 'sauna', 'buhar odası', 'wellness', 'masaj', 'yüzme', 'pool', 'beach', 'plaj', 'lunapark', 'amusement park', 'water park', 'theme park'
         ];
         const lowerMsg = safeMessage.toLowerCase();
-        // Eğer otel içi olanak kelimesi geçiyor ve "yakın", "dışarıda", "en yakın", "nearby", "outside", "closest" gibi dış mekan anahtar kelimeleri YOKSA, otel içi olarak işaretle
+        // OVERRIDE: Otel içi olanak anahtar kelimesi cümlede substring olarak geçiyorsa, her zaman otel içi olarak işaretle
         const outsideKeywords = ['yakın', 'dışarıda', 'en yakın', 'nearby', 'outside', 'closest', 'etraf', 'çevre', 'surrounding', 'around'];
-        const isAmenity = hotelAmenities.some(k => lowerMsg.includes(k));
         const isOutside = outsideKeywords.some(k => lowerMsg.includes(k));
-        if (isAmenity && !isOutside) {
+        const amenityOverride = hotelAmenities.some(keyword => lowerMsg.includes(keyword));
+        if (amenityOverride && !isOutside) {
             return {
                 category: 'OTEL_İÇİ',
-                confidence: 0.95,
+                confidence: 0.99,
                 isHotelAmenity: true
             };
         }
