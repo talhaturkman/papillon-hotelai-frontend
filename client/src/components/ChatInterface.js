@@ -5,7 +5,7 @@ import LocationPermission from './LocationPermission';
 import VoiceControls from './VoiceControls';
 import './ChatInterface.css';
 
-const API_BASE_URL = 'http://localhost:5002';
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5002';
 const LOCAL_SESSION_KEY = 'papillon_session_id';
 const LOCAL_MESSAGES_KEY = 'papillon_messages_cache';
 
