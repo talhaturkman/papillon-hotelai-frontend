@@ -82,9 +82,9 @@ function TrainingTab({ token, onAuthError }) {
       return;
     }
 
-    // F&B seçildiğinde restoran seçimi zorunlu
-    if (kind === 'FB' && !selectedRestaurant) {
-      setError('F&B kategorisi için lütfen bir restoran seçin.');
+    // Menü veya F&B seçildiğinde sectionName seçimi zorunlu
+    if ((kind === 'FB' || kind === 'Menu') && !selectedRestaurant) {
+      setError('Menü veya F&B kategorisi için lütfen bir bölüm seçin.');
       return;
     }
 
@@ -97,8 +97,12 @@ function TrainingTab({ token, onAuthError }) {
     formData.append('hotel', hotel);
     formData.append('language', language);
     formData.append('kind', kind);
-    if (kind === 'FB' && selectedRestaurant) {
-      formData.append('restaurant', selectedRestaurant);
+    if ((kind === 'FB' || kind === 'Menu') && selectedRestaurant) {
+      formData.append('sectionName', selectedRestaurant);
+    }
+    // SPA için otomatik Ana_SPA gönder
+    if (kind === 'SPA') {
+      formData.append('sectionName', 'Ana_SPA');
     }
 
     try {
@@ -161,13 +165,13 @@ function TrainingTab({ token, onAuthError }) {
               <option value="General">Genel Bilgi</option>
               <option value="Daily">Günlük Aktivite</option>
               <option value="SPA">SPA Menüsü</option>
-              <option value="FB">F&B</option>
+              <option value="Menu">Menü</option>
             </select>
           </div>
         </div>
 
-        {/* F&B seçildiğinde restoran listesi göster */}
-        {kind === 'FB' && (
+        {/* Menü veya F&B seçildiğinde restoran listesi göster */}
+        {(kind === 'FB' || kind === 'Menu') && (
           <div className="form-group">
             <label htmlFor="restaurant-select">Restoran</label>
             <select 

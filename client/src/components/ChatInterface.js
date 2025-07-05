@@ -52,12 +52,6 @@ function ChatInterface() {
     }
   }, [messages]);
 
-  const isLocationQuery = (message) => {
-    const lowerMessage = message.toLowerCase();
-    const locationKeywords = ['nerede', 'yakın', 'mesafe', 'nasıl gidilir', 'en yakın', 'where', 'near', 'nearby', 'closest', 'nearest', 'distance', 'how to get', 'wo', 'nähe', 'nächste', 'entfernung', 'wie komme ich', 'где', 'рядом', 'ближайший', 'расстояние', 'как добраться'];
-    return locationKeywords.some(keyword => lowerMessage.includes(keyword));
-  };
-
   const addMessage = (newMsg) => {
     // Eğer yeni mesaj canlı destek onayı ise, eski otel seçim mesajlarını temizle
     if (newMsg.offerSupport && newMsg.needHotelSelection === false) {
@@ -97,12 +91,6 @@ function ChatInterface() {
     setMessages(prev => [...prev, userMessage]);
     setShowLocationRequest(false);
     setPendingLocationQuery(null);
-    if (isLocationQuery(messageToProcess) && !userLocation && !customLocation) {
-      setPendingLocationQuery(messageToProcess);
-      setShowLocationRequest(true);
-      setInputValue('');
-      return;
-    }
     setInputValue('');
     setIsLoading(true);
     try {
@@ -121,6 +109,9 @@ function ChatInterface() {
       if (response.data.sessionId && response.data.sessionId !== sessionId) {
         setSessionId(response.data.sessionId);
         localStorage.setItem(LOCAL_SESSION_KEY, response.data.sessionId);
+      }
+      if (response.data.requiresLocation) {
+        setShowLocationRequest(true);
       }
     } catch (error) {
       console.error('Chat error:', error);

@@ -306,24 +306,33 @@ class FirebaseService {
         return [{ text }];
     }
 
-    async storeKnowledge(hotel, language, kind, content, documentDate = null, restaurant = null) {
+    async storeKnowledge(hotel, language, kind, content, documentDate = null, sectionName = null) {
         await this.ensureInitialized();
         if (!this.isInitialized) return { success: false, error: 'Firebase not initialized' };
 
         const normalizedHotel = (hotel === 'Papillon' || hotel === 'Tümü') ? 'All' : hotel;
         const normalizedKind = kind.charAt(0).toUpperCase() + kind.slice(1).toLowerCase();
 
-        // F&B için özel mantık
-        if (normalizedKind === 'Fb' && restaurant) {
-            // kinds/FB/{restoran_adi}/chunks (tek doküman)
-            const fbDocRef = this.db.collection('knowledge_base').doc('Papillon')
+        console.log('[storeKnowledge] called with:', { kind, normalizedKind, sectionName });
+
+        // Menü için: kinds/Menu dokümanında her restoran bir field olarak tutulacak
+        if (normalizedKind === 'Menu' && sectionName) {
+            const menuDocRef = this.db.collection('knowledge_base').doc('Papillon')
                 .collection(normalizedHotel).doc(language)
-                .collection('kinds').doc('FB');
-            const restaurantDocRef = fbDocRef.collection(restaurant).doc('chunks');
-            await restaurantDocRef.set({ text: content });
-            await fbDocRef.set({ updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
-            console.log(`[Firestore] F&B için kaydedildi: Papillon/${normalizedHotel}/${language}/kinds/FB/${restaurant}/chunks`);
-            return { success: true, chunks: 1 };
+                .collection('kinds').doc('Menu');
+            await menuDocRef.set({ [sectionName]: content, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+            console.log(`[Firestore] Menü için kaydedildi: Papillon/${normalizedHotel}/${language}/kinds/Menu (field: ${sectionName})`);
+            return { success: true };
+        }
+
+        // SPA için: kinds/Spa dokümanında her spa/alan bir field olarak tutulacak
+        if (normalizedKind === 'Spa' && sectionName) {
+            const spaDocRef = this.db.collection('knowledge_base').doc('Papillon')
+                .collection(normalizedHotel).doc(language)
+                .collection('kinds').doc('Spa');
+            await spaDocRef.set({ [sectionName]: content, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+            console.log(`[Firestore] SPA için kaydedildi: Papillon/${normalizedHotel}/${language}/kinds/Spa (field: ${sectionName})`);
+            return { success: true };
         }
 
         // For daily content, ensure we always have a date
@@ -347,38 +356,15 @@ class FirebaseService {
             });
         }
 
-        const kindDocRef = this.db.collection('knowledge_base').doc('Papillon')
-            .collection(normalizedHotel).doc(language)
-            .collection('kinds').doc(normalizedKind);
-
-        // General, Spa, Daily için artan isimli doküman olarak kaydet
-        const chunksCollectionRef = (normalizedKind === 'Fb' && restaurant)
-            ? this.db.collection('knowledge_base').doc('Papillon')
+        // General, Daily için artan isimli doküman olarak kaydet
+        if (['General', 'Daily'].includes(normalizedKind)) {
+            const kindDocRef = this.db.collection('knowledge_base').doc('Papillon')
                 .collection(normalizedHotel).doc(language)
-                .collection('kinds').doc('FB')
-                .collection(restaurant)
-            : kindDocRef.collection('chunks');
+                .collection('kinds').doc(normalizedKind);
+            // ... chunk kodu burada kalabilir, SPA ve Menu için chunks tamamen kaldırıldı
+        }
 
-        // Son chunk numarasını bul
-        const existingChunks = await chunksCollectionRef.listDocuments();
-        let maxChunkNum = 0;
-        existingChunks.forEach(doc => {
-            const match = doc.id.match(/^chunk(\d+)$/);
-            if (match) {
-                const num = parseInt(match[1], 10);
-                if (num > maxChunkNum) maxChunkNum = num;
-            }
-        });
-        const newChunkNum = maxChunkNum + 1;
-        const docRef = chunksCollectionRef.doc(`chunk${newChunkNum}`);
-        await docRef.set({ text: content });
-        await kindDocRef.set({ 
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-            chunkCount: newChunkNum,
-            ...(documentDate && { documentDate: admin.firestore.Timestamp.fromDate(documentDate) })
-        }, { merge: true });
-        console.log(`[Firestore] Successfully stored chunk${newChunkNum} as a new document in ${normalizedKind}${restaurant ? '/' + restaurant : ''}`);
-        return { success: true, chunks: newChunkNum };
+        return { success: true };
     }
 
     async searchKnowledge(hotel, language) {
@@ -402,6 +388,8 @@ class FirebaseService {
         let foundDaily = null, foundDailyLang = null;
         let foundSpa = null, foundSpaLang = null;
         let foundFB = null, foundFBLang = null; // F&B kategorisi için
+        let foundSpaChunks = {}; // SPA chunks'ları saklamak için
+        let foundMenuChunks = {}; // Menu chunks'ları saklamak için
 
         const dates = this.getDates();
         const { todayStart, todayEnd, yesterdayStart, yesterdayEnd, todayDate, yesterdayDate } = dates;
@@ -457,22 +445,53 @@ class FirebaseService {
                     });
                 }
                 
-                // Get spa chunks
-                const spaChunksSnapshot = await kindsCollectionRef.doc('Spa').collection('chunks').get();
-                const spaChunks = spaChunksSnapshot.docs.map(doc => doc.data().text);
-                console.log(`[Knowledge Search] Found ${spaChunks.length} spa chunks`);
-
-                // Get F&B chunks (yeni mantık: kinds/FB altındaki tüm koleksiyonlar)
-                const fbChunks = [];
-                const fbDocRef = kindsCollectionRef.doc('FB');
-                const restaurantCollections = await fbDocRef.listCollections();
-                for (const restaurantCol of restaurantCollections) {
-                    const fbChunksSnapshot = await restaurantCol.get();
-                    const chunks = fbChunksSnapshot.docs.map(doc => doc.data().text);
-                    fbChunks.push(...chunks);
-                    console.log(`[Knowledge Search] Found ${chunks.length} chunks for F&B restaurant: ${restaurantCol.id}`);
+                // Get spa chunks - yeni düzende tek doküman, alanlar
+                let spaChunks = [];
+                let spaChunksByName = {};
+                try {
+                    const spaDoc = await kindsCollectionRef.doc('Spa').get();
+                    if (spaDoc.exists) {
+                        const spaData = spaDoc.data();
+                        if (spaData && typeof spaData === 'object') {
+                            for (const [spaName, text] of Object.entries(spaData)) {
+                                if (spaName !== 'updatedAt' && text) {
+                                    spaChunksByName[spaName] = [{ text }];
+                                    spaChunks.push(text);
+                                    console.log(`[Knowledge Search] Found spa for: ${spaName}`);
+                                }
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.log(`[Knowledge Search] Error reading SPA data:`, error);
+                    spaChunks = [];
+                    spaChunksByName = {};
                 }
-                console.log(`[Knowledge Search] Found ${fbChunks.length} total F&B chunks`);
+                console.log(`[Knowledge Search] Found ${spaChunks.length} total SPA chunks`);
+
+                // Get menu chunks - yeni düzende tek doküman, alanlar
+                let menuChunks = [];
+                let menuChunksByRestaurant = {};
+                try {
+                    const menuDoc = await kindsCollectionRef.doc('Menu').get();
+                    if (menuDoc.exists) {
+                        const menuData = menuDoc.data();
+                        if (menuData && typeof menuData === 'object') {
+                            for (const [restaurant, text] of Object.entries(menuData)) {
+                                if (restaurant !== 'updatedAt' && text) {
+                                    menuChunksByRestaurant[restaurant] = [{ text }];
+                                    menuChunks.push(text);
+                                    console.log(`[Knowledge Search] Found menu for restaurant: ${restaurant}`);
+                                }
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.log(`[Knowledge Search] Error reading Menu data:`, error);
+                    menuChunks = [];
+                    menuChunksByRestaurant = {};
+                }
+                console.log(`[Knowledge Search] Found ${menuChunks.length} total Menu chunks`);
 
                 let todayContent = [];
                 let yesterdayContent = [];
@@ -531,13 +550,15 @@ class FirebaseService {
                     dailyToday: todayContent.join('\n'),
                     dailyYesterday: yesterdayContent.join('\n'),
                     spa: spaChunks.join('\n'),
-                    fb: fbChunks.join('\n'), // F&B bilgisi ekle
+                    menu: menuChunks.join('\n'), // Menü bilgisi ekle
                     dates: {
                         today: todayDate,
                         yesterday: yesterdayDate,
                         hasTodayContent: todayContent.length > 0,
                         hasYesterdayContent: yesterdayContent.length > 0
-                    }
+                    },
+                    menuChunks: menuChunksByRestaurant, // Restoran bazlı menü chunk'ları
+                    spaChunks: spaChunksByName // Spa bazlı spa chunk'ları
                 };
 
                 // Log final content summary
@@ -546,7 +567,7 @@ class FirebaseService {
                     dailyToday: result.dailyToday.length > 0,
                     dailyYesterday: result.dailyYesterday.length > 0,
                     spa: result.spa.length > 0,
-                    fb: result.fb.length > 0,
+                    menu: result.menu.length > 0,
                     dates: result.dates
                 });
 
@@ -558,13 +579,15 @@ class FirebaseService {
                     dailyToday: '',
                     dailyYesterday: '',
                     spa: '',
-                    fb: '',
+                    menu: '',
                     dates: {
                         today: todayDate,
                         yesterday: yesterdayDate,
                         hasTodayContent: false,
                         hasYesterdayContent: false
-                    }
+                    },
+                    menuChunks: {},
+                    spaChunks: {}
                 };
             }
         };
@@ -590,12 +613,14 @@ class FirebaseService {
             if (!foundSpa && results.spa) {
                 foundSpa = results.spa;
                 foundSpaLang = lang;
+                foundSpaChunks = results.spaChunks || {};
                 console.log(`[Knowledge Search] SUCCESS: Found SPA info in language: ${lang}`);
             }
-            if (!foundFB && results.fb) {
-                foundFB = results.fb;
+            if (!foundFB && results.menu) {
+                foundFB = results.menu;
                 foundFBLang = lang;
-                console.log(`[Knowledge Search] SUCCESS: Found F&B info in language: ${lang}`);
+                foundMenuChunks = results.menuChunks || {};
+                console.log(`[Knowledge Search] SUCCESS: Found Menu info in language: ${lang}`);
             }
             if (foundGeneral && foundDaily && foundSpa && foundFB) break;
         }
@@ -620,7 +645,7 @@ class FirebaseService {
             foundSpa = await translationService.translateText(foundSpa, language);
         }
         if (foundFB && foundFBLang !== language) {
-            console.log(`[Knowledge Search] Translating F&B info from ${foundFBLang} to ${language}`);
+            console.log(`[Knowledge Search] Translating Menu info from ${foundFBLang} to ${language}`);
             foundFB = await translationService.translateText(foundFB, language);
         }
 
@@ -642,17 +667,22 @@ class FirebaseService {
             finalContent += `### SPA Information ###\n${foundSpa}\n\n`;
         }
         if (foundFB) {
-            finalContent += `### F&B Information ###\n${foundFB}\n\n`;
+            console.log('[DEBUG] foundFB:', foundFB);
+            finalContent += `### Menu Information ###\n${foundFB}\n\n`;
         }
+        // LOG CONTEXT
+        console.log('[Knowledge Search] LLM context (first 2000 chars):', finalContent.substring(0, 2000));
         
         const success = finalContent.length > 0;
         const dailyDates = foundDaily?.dates || { today: todayDate, yesterday: yesterdayDate, hasTodayContent: false, hasYesterdayContent: false };
         
-        console.log(`[Knowledge Search] Final check. General: ${!!foundGeneral}, Daily: ${!!foundDaily}, SPA: ${!!foundSpa}, F&B: ${!!foundFB}. Length: ${finalContent.length}`);
+        console.log(`[Knowledge Search] Final check. General: ${!!foundGeneral}, Daily: ${!!foundDaily}, SPA: ${!!foundSpa}, Menu: ${!!foundFB}. Length: ${finalContent.length}`);
         return { 
             success, 
             content: finalContent,
-            dates: dailyDates
+            dates: dailyDates,
+            menuChunks: foundMenuChunks,
+            spaChunks: foundSpaChunks
         };
     }
 

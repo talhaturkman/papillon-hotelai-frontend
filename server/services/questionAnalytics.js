@@ -120,13 +120,9 @@ async function isQuestion(text, language) {
 Text: "${textForGemini}"
 
 Rules:
-1. Return "true" if the text is a question or inquiry that seeks information, even if it is short, yes/no, or about hotel services.
-2. Return "true" for any sentence that asks for information, confirmation, or details (including test, sample, or demo questions).
-3. Return "false" for:
-   - Simple greetings (hello, hi, etc.)
-   - Thank you messages
-   - Goodbyes
-   - Any text that doesn't seek information or require a response
+1. Return "true" if the text is a question, inquiry, or any message that could require a response or information, regardless of whether it is a greeting, thanks, or closing.
+2. Return "true" for any sentence that asks for information, confirmation, details, or even general interaction.
+3. Return "false" only if the text is completely empty or meaningless.
 
 Important: Return ONLY "true" or "false", no other text or formatting.`;
 
@@ -147,28 +143,6 @@ Important: Return ONLY "true" or "false", no other text or formatting.`;
         console.error('❌ AI Question Detection failed:', error);
         // Enhanced fallback detection
         const text_lower = textForGemini.toLowerCase().trim();
-        
-        // Filter out common non-questions
-        const greetings = ['merhaba', 'hello', 'hi', 'hallo', 'привет', 'selam'];
-        const thanks = ['thank', 'thanks', 'teşekkür', 'danke', 'спасибо'];
-        const goodbyes = ['goodbye', 'bye', 'güle güle', 'auf wiedersehen', 'до свидания'];
-        const hotels = ['belvil', 'zeugma', 'ayscha'];
-        
-        // Check for standalone hotel names or hotel + otel/hotel/otelde
-        if (hotels.some(h => text_lower === h || text_lower === `${h} otel` || text_lower === `${h} hotel` || text_lower === `${h} otelde`)) {
-            return false;
-        }
-        
-        // Filter out simple greetings (only if they're short)
-        if (greetings.some(g => text_lower.includes(g)) && text_lower.split(' ').length < 3) {
-            return false;
-        }
-        
-        // Filter out thanks and goodbyes
-        if (thanks.some(t => text_lower.includes(t)) || goodbyes.some(g => text_lower.includes(g))) {
-            return false;
-        }
-        
         // Check for question indicators
         const hasQuestionMark = textForGemini.includes('?');
         const hasQuestionWord = text_lower.includes('mi') || 
@@ -180,7 +154,6 @@ Important: Return ONLY "true" or "false", no other text or formatting.`;
                               text_lower.includes('hangi') ||
                               text_lower.includes('kim') ||
                               text_lower.includes('neden');
-        
         // Must have either a question mark or a question word
         return hasQuestionMark || hasQuestionWord;
     }

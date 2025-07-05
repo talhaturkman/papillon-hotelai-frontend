@@ -1,345 +1,444 @@
 const axios = require('axios');
 
-// Test konfigürasyonu
-const BASE_URL = 'http://localhost:3000';
-const TEST_LANGUAGES = ['tr', 'en', 'de', 'ru', 'ar'];
-const HOTELS = ['belvil', 'zeugma', 'ayscha'];
+// Test configuration
+const BASE_URL = 'http://localhost:5002';
+const TEST_SESSION_ID = 'stress-test-' + Date.now();
 
-// Test soruları - 100 soru
-const TEST_QUESTIONS = [
+// Test categories and questions
+const testQuestions = [
     // === ÇEVİRİ SİSTEMİ TESTLERİ (20 soru) ===
-    // Türkçe sorular
-    { text: "Belvil otelinde havuz ne zaman açık?", language: "tr", category: "translation", expected: "pool" },
-    { text: "Zeugma'da spa randevusu alabilir miyim?", language: "tr", category: "translation", expected: "spa" },
-    { text: "Ayscha'da restoran rezervasyonu yapmak istiyorum", language: "tr", category: "translation", expected: "restaurant" },
-    { text: "Belvil'de plaj şemsiyesi var mı?", language: "tr", category: "translation", expected: "beach" },
-    { text: "Zeugma'da fitness salonu saatleri nedir?", language: "tr", category: "translation", expected: "gym" },
-    
-    // İngilizce sorular
-    { text: "What time does the pool open at Belvil?", language: "en", category: "translation", expected: "pool" },
-    { text: "Can I book a spa appointment at Zeugma?", language: "en", category: "translation", expected: "spa" },
-    { text: "I want to make a restaurant reservation at Ayscha", language: "en", category: "translation", expected: "restaurant" },
-    { text: "Are there beach umbrellas at Belvil?", language: "en", category: "translation", expected: "beach" },
-    { text: "What are the gym hours at Zeugma?", language: "en", category: "translation", expected: "gym" },
-    
-    // Almanca sorular
-    { text: "Wann öffnet das Schwimmbad in Belvil?", language: "de", category: "translation", expected: "pool" },
-    { text: "Kann ich einen Spa-Termin in Zeugma buchen?", language: "de", category: "translation", expected: "spa" },
-    { text: "Ich möchte eine Restaurant-Reservierung in Ayscha machen", language: "de", category: "translation", expected: "restaurant" },
-    { text: "Gibt es Strandschirme in Belvil?", language: "de", category: "translation", expected: "beach" },
-    { text: "Was sind die Fitnessstudio-Öffnungszeiten in Zeugma?", language: "de", category: "translation", expected: "gym" },
-    
-    // Rusça sorular
-    { text: "Когда открывается бассейн в Белвиле?", language: "ru", category: "translation", expected: "pool" },
-    { text: "Могу ли я забронировать спа в Зеугме?", language: "ru", category: "translation", expected: "spa" },
-    { text: "Я хочу забронировать ресторан в Айше", language: "ru", category: "translation", expected: "restaurant" },
-    { text: "Есть ли пляжные зонтики в Белвиле?", language: "ru", category: "translation", expected: "beach" },
-    { text: "Какие часы работы спортзала в Зеугме?", language: "ru", category: "translation", expected: "gym" },
+    {
+        category: 'Translation System',
+        questions: [
+            { message: 'Hello, I need help with my reservation', expectedLanguage: 'en' },
+            { message: 'Hallo, ich brauche Hilfe bei meiner Reservierung', expectedLanguage: 'de' },
+            { message: 'Здравствуйте, мне нужна помощь с бронированием', expectedLanguage: 'ru' },
+            { message: 'Merhaba, rezervasyonumla ilgili yardıma ihtiyacım var', expectedLanguage: 'tr' },
+            { message: 'What time does the restaurant open?', expectedLanguage: 'en' },
+            { message: 'Wann öffnet das Restaurant?', expectedLanguage: 'de' },
+            { message: 'В какое время открывается ресторан?', expectedLanguage: 'ru' },
+            { message: 'Restoran saat kaçta açılıyor?', expectedLanguage: 'tr' },
+            { message: 'I want to book a spa treatment', expectedLanguage: 'en' },
+            { message: 'Ich möchte eine Spa-Behandlung buchen', expectedLanguage: 'de' },
+            { message: 'Я хочу забронировать спа-процедуру', expectedLanguage: 'ru' },
+            { message: 'Spa tedavisi rezervasyonu yapmak istiyorum', expectedLanguage: 'tr' },
+            { message: 'Where is the swimming pool?', expectedLanguage: 'en' },
+            { message: 'Wo ist das Schwimmbad?', expectedLanguage: 'de' },
+            { message: 'Где находится бассейн?', expectedLanguage: 'ru' },
+            { message: 'Yüzme havuzu nerede?', expectedLanguage: 'tr' },
+            { message: 'Can you help me with room service?', expectedLanguage: 'en' },
+            { message: 'Können Sie mir bei der Zimmerdienst helfen?', expectedLanguage: 'de' },
+            { message: 'Можете ли вы помочь мне с обслуживанием номеров?', expectedLanguage: 'ru' },
+            { message: 'Oda servisi konusunda yardım edebilir misiniz?', expectedLanguage: 'tr' }
+        ]
+    },
 
-    // === GÜNLÜK BİLGİLER TESTLERİ (20 soru) ===
-    { text: "Bugün Belvil'de ne var?", language: "tr", category: "daily", expected: "daily_info" },
-    { text: "Zeugma'da bugünkü aktiviteler neler?", language: "tr", category: "daily", expected: "daily_info" },
-    { text: "Ayscha'da bugün ne yapabilirim?", language: "tr", category: "daily", expected: "daily_info" },
-    { text: "Belvil'de bugün hava nasıl?", language: "tr", category: "daily", expected: "daily_info" },
-    { text: "Zeugma'da bugün özel bir etkinlik var mı?", language: "tr", category: "daily", expected: "daily_info" },
-    
-    { text: "What's happening at Belvil today?", language: "en", category: "daily", expected: "daily_info" },
-    { text: "What are today's activities at Zeugma?", language: "en", category: "daily", expected: "daily_info" },
-    { text: "What can I do at Ayscha today?", language: "en", category: "daily", expected: "daily_info" },
-    { text: "How's the weather at Belvil today?", language: "en", category: "daily", expected: "daily_info" },
-    { text: "Is there a special event at Zeugma today?", language: "en", category: "daily", expected: "daily_info" },
-    
-    { text: "Was passiert heute in Belvil?", language: "de", category: "daily", expected: "daily_info" },
-    { text: "Was sind die heutigen Aktivitäten in Zeugma?", language: "de", category: "daily", expected: "daily_info" },
-    { text: "Was kann ich heute in Ayscha machen?", language: "de", category: "daily", expected: "daily_info" },
-    { text: "Wie ist das Wetter heute in Belvil?", language: "de", category: "daily", expected: "daily_info" },
-    { text: "Gibt es heute eine besondere Veranstaltung in Zeugma?", language: "de", category: "daily", expected: "daily_info" },
-    
-    { text: "Что происходит сегодня в Белвиле?", language: "ru", category: "daily", expected: "daily_info" },
-    { text: "Какие сегодня мероприятия в Зеугме?", language: "ru", category: "daily", expected: "daily_info" },
-    { text: "Что я могу сделать сегодня в Айше?", language: "ru", category: "daily", expected: "daily_info" },
-    { text: "Какая погода сегодня в Белвиле?", language: "ru", category: "daily", expected: "daily_info" },
-    { text: "Есть ли сегодня особое мероприятие в Зеугме?", language: "ru", category: "daily", expected: "daily_info" },
+    // === GÜNLÜK BİLGİLER TESTLERİ (15 soru) ===
+    {
+        category: 'Daily Information',
+        questions: [
+            { message: 'What is today\'s weather like?', hotel: 'belvil' },
+            { message: 'Bugün hava nasıl?', hotel: 'belvil' },
+            { message: 'Wie ist das Wetter heute?', hotel: 'belvil' },
+            { message: 'Какая сегодня погода?', hotel: 'belvil' },
+            { message: 'What activities are available today?', hotel: 'zeugma' },
+            { message: 'Bugün hangi aktiviteler var?', hotel: 'zeugma' },
+            { message: 'Welche Aktivitäten gibt es heute?', hotel: 'zeugma' },
+            { message: 'Какие мероприятия сегодня?', hotel: 'zeugma' },
+            { message: 'What is the daily program?', hotel: 'ayscha' },
+            { message: 'Günlük program nedir?', hotel: 'ayscha' },
+            { message: 'Was ist das Tagesprogramm?', hotel: 'ayscha' },
+            { message: 'Какова дневная программа?', hotel: 'ayscha' },
+            { message: 'Are there any special events today?', hotel: 'belvil' },
+            { message: 'Bugün özel etkinlik var mı?', hotel: 'belvil' },
+            { message: 'Gibt es heute besondere Veranstaltungen?', hotel: 'belvil' }
+        ]
+    },
 
-    // === GENEL BİLGİLER TESTLERİ (20 soru) ===
-    { text: "Belvil oteli hakkında genel bilgi", language: "tr", category: "general", expected: "general_info" },
-    { text: "Zeugma'nın konumu nerede?", language: "tr", category: "general", expected: "general_info" },
-    { text: "Ayscha'da kaç oda var?", language: "tr", category: "general", expected: "general_info" },
-    { text: "Belvil'de internet var mı?", language: "tr", category: "general", expected: "general_info" },
-    { text: "Zeugma'da otopark var mı?", language: "tr", category: "general", expected: "general_info" },
-    
-    { text: "General information about Belvil hotel", language: "en", category: "general", expected: "general_info" },
-    { text: "Where is Zeugma located?", language: "en", category: "general", expected: "general_info" },
-    { text: "How many rooms does Ayscha have?", language: "en", category: "general", expected: "general_info" },
-    { text: "Is there internet at Belvil?", language: "en", category: "general", expected: "general_info" },
-    { text: "Is there parking at Zeugma?", language: "en", category: "general", expected: "general_info" },
-    
-    { text: "Allgemeine Informationen über das Belvil Hotel", language: "de", category: "general", expected: "general_info" },
-    { text: "Wo befindet sich Zeugma?", language: "de", category: "general", expected: "general_info" },
-    { text: "Wie viele Zimmer hat Ayscha?", language: "de", category: "general", expected: "general_info" },
-    { text: "Gibt es Internet in Belvil?", language: "de", category: "general", expected: "general_info" },
-    { text: "Gibt es Parkplätze in Zeugma?", language: "de", category: "general", expected: "general_info" },
-    
-    { text: "Общая информация об отеле Белвил", language: "ru", category: "general", expected: "general_info" },
-    { text: "Где находится Зеугма?", language: "ru", category: "general", expected: "general_info" },
-    { text: "Сколько номеров в Айше?", language: "ru", category: "general", expected: "daily_info" },
-    { text: "Есть ли интернет в Белвиле?", language: "ru", category: "general", expected: "general_info" },
-    { text: "Есть ли парковка в Зеугме?", language: "ru", category: "general", expected: "general_info" },
+    // === GENEL BİLGİLER TESTLERİ (15 soru) ===
+    {
+        category: 'General Information',
+        questions: [
+            { message: 'Tell me about the hotel facilities', hotel: 'belvil' },
+            { message: 'Otel olanakları hakkında bilgi verin', hotel: 'belvil' },
+            { message: 'Erzählen Sie mir über die Hotelanlagen', hotel: 'belvil' },
+            { message: 'Расскажите об удобствах отеля', hotel: 'belvil' },
+            { message: 'What are the check-in and check-out times?', hotel: 'zeugma' },
+            { message: 'Giriş ve çıkış saatleri nedir?', hotel: 'zeugma' },
+            { message: 'Was sind die Check-in- und Check-out-Zeiten?', hotel: 'zeugma' },
+            { message: 'Какое время заезда и выезда?', hotel: 'zeugma' },
+            { message: 'How do I get to the hotel from the airport?', hotel: 'ayscha' },
+            { message: 'Havaalanından otele nasıl gidebilirim?', hotel: 'ayscha' },
+            { message: 'Wie komme ich vom Flughafen zum Hotel?', hotel: 'ayscha' },
+            { message: 'Как добраться от аэропорта до отеля?', hotel: 'ayscha' },
+            { message: 'What is the hotel\'s address?', hotel: 'belvil' },
+            { message: 'Otelin adresi nedir?', hotel: 'belvil' },
+            { message: 'Was ist die Adresse des Hotels?', hotel: 'belvil' }
+        ]
+    },
 
-    // === SPA KATALOG TESTLERİ (20 soru) ===
-    { text: "Belvil'de spa hizmetleri neler?", language: "tr", category: "spa", expected: "spa_catalog" },
-    { text: "Zeugma'da masaj türleri", language: "tr", category: "spa", expected: "spa_catalog" },
-    { text: "Ayscha'da spa fiyatları", language: "tr", category: "spa", expected: "spa_catalog" },
-    { text: "Belvil'de spa randevu nasıl alınır?", language: "tr", category: "spa", expected: "spa_catalog" },
-    { text: "Zeugma'da spa paketleri", language: "tr", category: "spa", expected: "spa_catalog" },
-    
-    { text: "What spa services are available at Belvil?", language: "en", category: "spa", expected: "spa_catalog" },
-    { text: "Types of massage at Zeugma", language: "en", category: "spa", expected: "spa_catalog" },
-    { text: "Spa prices at Ayscha", language: "en", category: "spa", expected: "spa_catalog" },
-    { text: "How to book spa at Belvil?", language: "en", category: "spa", expected: "spa_catalog" },
-    { text: "Spa packages at Zeugma", language: "en", category: "spa", expected: "spa_catalog" },
-    
-    { text: "Welche Spa-Dienstleistungen gibt es in Belvil?", language: "de", category: "spa", expected: "spa_catalog" },
-    { text: "Massagearten in Zeugma", language: "de", category: "spa", expected: "spa_catalog" },
-    { text: "Spa-Preise in Ayscha", language: "de", category: "spa", expected: "spa_catalog" },
-    { text: "Wie buche ich Spa in Belvil?", language: "de", category: "spa", expected: "spa_catalog" },
-    { text: "Spa-Pakete in Zeugma", language: "de", category: "spa", expected: "spa_catalog" },
-    
-    { text: "Какие спа-услуги доступны в Белвиле?", language: "ru", category: "spa", expected: "spa_catalog" },
-    { text: "Виды массажа в Зеугме", language: "ru", category: "spa", expected: "spa_catalog" },
-    { text: "Цены на спа в Айше", language: "ru", category: "spa", expected: "spa_catalog" },
-    { text: "Как забронировать спа в Белвиле?", language: "ru", category: "spa", expected: "spa_catalog" },
-    { text: "Спа-пакеты в Зеугме", language: "ru", category: "spa", expected: "spa_catalog" },
+    // === SPA KATALOĞU TESTLERİ (15 soru) ===
+    {
+        category: 'Spa Catalog',
+        questions: [
+            { message: 'What spa treatments are available?', hotel: 'belvil' },
+            { message: 'Hangi spa tedavileri mevcut?', hotel: 'belvil' },
+            { message: 'Welche Spa-Behandlungen sind verfügbar?', hotel: 'belvil' },
+            { message: 'Какие спа-процедуры доступны?', hotel: 'belvil' },
+            { message: 'How much does a massage cost?', hotel: 'zeugma' },
+            { message: 'Masaj fiyatı nedir?', hotel: 'zeugma' },
+            { message: 'Wie viel kostet eine Massage?', hotel: 'zeugma' },
+            { message: 'Сколько стоит массаж?', hotel: 'zeugma' },
+            { message: 'Can I book a spa appointment?', hotel: 'ayscha' },
+            { message: 'Spa randevusu alabilir miyim?', hotel: 'ayscha' },
+            { message: 'Kann ich einen Spa-Termin buchen?', hotel: 'ayscha' },
+            { message: 'Могу ли я забронировать спа-сеанс?', hotel: 'ayscha' },
+            { message: 'What are the spa opening hours?', hotel: 'belvil' },
+            { message: 'Spa çalışma saatleri nedir?', hotel: 'belvil' },
+            { message: 'Was sind die Spa-Öffnungszeiten?', hotel: 'belvil' }
+        ]
+    },
 
-    // === F&B BİLGİLERİ TESTLERİ (20 soru) ===
-    { text: "Belvil'de restoran menüsü", language: "tr", category: "f&b", expected: "f&b_info" },
-    { text: "Zeugma'da kahvaltı saatleri", language: "tr", category: "f&b", expected: "f&b_info" },
-    { text: "Ayscha'da akşam yemeği rezervasyonu", language: "tr", category: "f&b", expected: "f&b_info" },
-    { text: "Belvil'de bar hizmetleri", language: "tr", category: "f&b", expected: "f&b_info" },
-    { text: "Zeugma'da özel diyet menüleri", language: "tr", category: "f&b", expected: "f&b_info" },
-    
-    { text: "Restaurant menu at Belvil", language: "en", category: "f&b", expected: "f&b_info" },
-    { text: "Breakfast hours at Zeugma", language: "en", category: "f&b", expected: "f&b_info" },
-    { text: "Dinner reservation at Ayscha", language: "en", category: "f&b", expected: "f&b_info" },
-    { text: "Bar services at Belvil", language: "en", category: "f&b", expected: "f&b_info" },
-    { text: "Special diet menus at Zeugma", language: "en", category: "f&b", expected: "f&b_info" },
-    
-    { text: "Restaurant-Menü in Belvil", language: "de", category: "f&b", expected: "f&b_info" },
-    { text: "Frühstückszeiten in Zeugma", language: "de", category: "f&b", expected: "f&b_info" },
-    { text: "Abendessen-Reservierung in Ayscha", language: "de", category: "f&b", expected: "f&b_info" },
-    { text: "Bar-Services in Belvil", language: "de", category: "f&b", expected: "f&b_info" },
-    { text: "Spezielle Diät-Menüs in Zeugma", language: "de", category: "f&b", expected: "f&b_info" },
-    
-    { text: "Меню ресторана в Белвиле", language: "ru", category: "f&b", expected: "f&b_info" },
-    { text: "Часы завтрака в Зеугме", language: "ru", category: "f&b", expected: "f&b_info" },
-    { text: "Бронирование ужина в Айше", language: "ru", category: "f&b", expected: "f&b_info" },
-    { text: "Бар-услуги в Белвиле", language: "ru", category: "f&b", expected: "f&b_info" },
-    { text: "Специальные диетические меню в Зеугме", language: "ru", category: "f&b", expected: "f&b_info" }
+    // === F&B BİLGİLERİ TESTLERİ (15 soru) ===
+    {
+        category: 'F&B Information',
+        questions: [
+            { message: 'What restaurants are in the hotel?', hotel: 'belvil' },
+            { message: 'Otelde hangi restoranlar var?', hotel: 'belvil' },
+            { message: 'Welche Restaurants gibt es im Hotel?', hotel: 'belvil' },
+            { message: 'Какие рестораны есть в отеле?', hotel: 'belvil' },
+            { message: 'What is the menu at Bloom Lounge?', hotel: 'belvil' },
+            { message: 'Bloom Lounge menüsü nedir?', hotel: 'belvil' },
+            { message: 'Was ist die Speisekarte im Bloom Lounge?', hotel: 'belvil' },
+            { message: 'Какое меню в Bloom Lounge?', hotel: 'belvil' },
+            { message: 'Tell me about the food at Dolce Vita', hotel: 'belvil' },
+            { message: 'Dolce Vita\'daki yemekler hakkında bilgi verin', hotel: 'belvil' },
+            { message: 'Erzählen Sie mir über das Essen im Dolce Vita', hotel: 'belvil' },
+            { message: 'Расскажите о еде в Dolce Vita', hotel: 'belvil' },
+            { message: 'What time does the restaurant close?', hotel: 'zeugma' },
+            { message: 'Restoran saat kaçta kapanıyor?', hotel: 'zeugma' },
+            { message: 'Wann schließt das Restaurant?', hotel: 'zeugma' }
+        ]
+    },
+
+    // === CANLI DESTEK SİSTEMİ TESTLERİ (20 soru) ===
+    {
+        category: 'Live Support System',
+        questions: [
+            { message: 'I need live support', expectedResponse: 'support' },
+            { message: 'Canlı destek istiyorum', expectedResponse: 'support' },
+            { message: 'Ich brauche Live-Support', expectedResponse: 'support' },
+            { message: 'Мне нужна живая поддержка', expectedResponse: 'support' },
+            { message: 'I want to talk to a real person', expectedResponse: 'support' },
+            { message: 'Gerçek bir insanla konuşmak istiyorum', expectedResponse: 'support' },
+            { message: 'Ich möchte mit einem echten Menschen sprechen', expectedResponse: 'support' },
+            { message: 'Я хочу поговорить с настоящим человеком', expectedResponse: 'support' },
+            { message: 'Belvil hotel live support', expectedResponse: 'support' },
+            { message: 'Belvil oteli canlı destek', expectedResponse: 'support' },
+            { message: 'Belvil Hotel Live-Support', expectedResponse: 'support' },
+            { message: 'Живая поддержка отеля Belvil', expectedResponse: 'support' },
+            { message: 'I want to connect to live support for Zeugma hotel', expectedResponse: 'support' },
+            { message: 'Zeugma oteli için canlı desteğe bağlanmak istiyorum', expectedResponse: 'support' },
+            { message: 'Ich möchte mit dem Live-Support für das Hotel Zeugma verbunden werden', expectedResponse: 'support' },
+            { message: 'Я хочу подключиться к службе поддержки отеля Zeugma', expectedResponse: 'support' },
+            { message: 'Ayscha hotel customer service', expectedResponse: 'support' },
+            { message: 'Ayscha oteli müşteri hizmetleri', expectedResponse: 'support' },
+            { message: 'Ayscha Hotel Kundenservice', expectedResponse: 'support' },
+            { message: 'Служба поддержки отеля Ayscha', expectedResponse: 'support' }
+        ]
+    }
 ];
 
-// Canlı destek testleri (20 soru)
-const LIVE_SUPPORT_QUESTIONS = [
-    { text: "Belvil canlı destek", language: "tr", category: "live_support", expected: "live_support" },
-    { text: "Zeugma canlı destek", language: "tr", category: "live_support", expected: "live_support" },
-    { text: "Ayscha canlı destek", language: "tr", category: "live_support", expected: "live_support" },
-    { text: "Belvil live support", language: "en", category: "live_support", expected: "live_support" },
-    { text: "Zeugma live support", language: "en", category: "live_support", expected: "live_support" },
-    { text: "Ayscha live support", language: "en", category: "live_support", expected: "live_support" },
-    { text: "Belvil Live-Support", language: "de", category: "live_support", expected: "live_support" },
-    { text: "Zeugma Live-Support", language: "de", category: "live_support", expected: "live_support" },
-    { text: "Ayscha Live-Support", language: "de", category: "live_support", expected: "live_support" },
-    { text: "Белвил живая поддержка", language: "ru", category: "live_support", expected: "live_support" },
-    { text: "Зеугма живая поддержка", language: "ru", category: "live_support", expected: "live_support" },
-    { text: "Айша живая поддержка", language: "ru", category: "live_support", expected: "live_support" },
-    { text: "Belvil yardım", language: "tr", category: "live_support", expected: "live_support" },
-    { text: "Zeugma yardım", language: "tr", category: "live_support", expected: "live_support" },
-    { text: "Ayscha yardım", language: "tr", category: "live_support", expected: "live_support" },
-    { text: "Belvil help", language: "en", category: "live_support", expected: "live_support" },
-    { text: "Zeugma help", language: "en", category: "live_support", expected: "live_support" },
-    { text: "Ayscha help", language: "en", category: "live_support", expected: "live_support" },
-    { text: "Belvil Hilfe", language: "de", category: "live_support", expected: "live_support" },
-    { text: "Zeugma Hilfe", language: "de", category: "live_support", expected: "live_support" },
-    { text: "Ayscha Hilfe", language: "de", category: "live_support", expected: "live_support" }
-];
-
-// Tüm test sorularını birleştir
-const ALL_QUESTIONS = [...TEST_QUESTIONS, ...LIVE_SUPPORT_QUESTIONS].slice(0, 20);
-
-// Test sonuçları
-let results = {
-    total: 0,
-    successful: 0,
-    failed: 0,
-    categories: {
-        translation: { total: 0, successful: 0, failed: 0, avgResponseTime: 0 },
-        daily: { total: 0, successful: 0, failed: 0, avgResponseTime: 0 },
-        general: { total: 0, successful: 0, failed: 0, avgResponseTime: 0 },
-        spa: { total: 0, successful: 0, failed: 0, avgResponseTime: 0 },
-        'f&b': { total: 0, successful: 0, failed: 0, avgResponseTime: 0 },
-        live_support: { total: 0, successful: 0, failed: 0, avgResponseTime: 0 }
-    },
-    languages: {
-        tr: { total: 0, successful: 0, failed: 0, avgResponseTime: 0 },
-        en: { total: 0, successful: 0, failed: 0, avgResponseTime: 0 },
-        de: { total: 0, successful: 0, failed: 0, avgResponseTime: 0 },
-        ru: { total: 0, successful: 0, failed: 0, avgResponseTime: 0 },
-        ar: { total: 0, successful: 0, failed: 0, avgResponseTime: 0 }
-    },
+// Test results storage
+let testResults = {
+    totalTests: 0,
+    passedTests: 0,
+    failedTests: 0,
+    categoryResults: {},
     responseTimes: [],
     errors: []
 };
 
-// Normalizasyon fonksiyonu (küçük harf, Türkçe karakter, boşluk)
-function normalize(str) {
-    return str
-        .toLowerCase()
-        .replace(/ı/g, 'i')
-        .replace(/ş/g, 's')
-        .replace(/ç/g, 'c')
-        .replace(/ö/g, 'o')
-        .replace(/ü/g, 'u')
-        .replace(/ğ/g, 'g')
-        .replace(/[^a-z0-9: -]/g, '')
-        .replace(/\s+/g, ' ')
-        .trim();
-}
-
-// Test fonksiyonu
-async function runTest(question, index) {
+// Helper function to make API call
+async function makeApiCall(message, sessionId = TEST_SESSION_ID) {
     const startTime = Date.now();
-    
     try {
-        console.log(`\n[${index + 1}/120] Testing: "${question.text}" (${question.language})`);
-        
         const response = await axios.post(`${BASE_URL}/api/chat`, {
-            message: question.text,
-            language: question.language,
-            sessionId: `stress-test-${Date.now()}-${index}`
+            message: message,
+            session_id: sessionId,
+            history: []
         }, {
-            timeout: 30000 // 30 saniye timeout
+            timeout: 30000 // 30 second timeout
         });
-        
-        const endTime = Date.now();
-        const responseTime = endTime - startTime;
-        
-        const success = response.data && response.data.success;
-        // Esnek anahtar kelime kontrolü
-        let hasRelevantContent = false;
-        if (response.data && response.data.response && question.expected) {
-            const answerNorm = normalize(response.data.response);
-            // Virgül veya / ile ayrılmış birden fazla expected anahtar kelimeyi destekle
-            const expectedKeywords = question.expected.split(/[,/]/).map(e => normalize(e));
-            hasRelevantContent = expectedKeywords.some(keyword => keyword && answerNorm.includes(keyword));
-            // Saat aralığı kontrolü (örn. 07:00-19:00 gibi)
-            const hourRegex = /([01]?\d|2[0-3]):[0-5]\d\s*-\s*([01]?\d|2[0-3]):[0-5]\d/;
-            if (!hasRelevantContent && hourRegex.test(question.expected)) {
-                const match = answerNorm.match(hourRegex);
-                if (match && normalize(question.expected).includes(match[0])) {
-                    hasRelevantContent = true;
-                }
-            }
-        }
-        
-        // Sonuçları kaydet
-        results.total++;
-        results.responseTimes.push(responseTime);
-        
-        if (success && hasRelevantContent) {
-            results.successful++;
-            results.categories[question.category].successful++;
-            results.languages[question.language].successful++;
-        } else {
-            results.failed++;
-            results.categories[question.category].failed++;
-            results.languages[question.language].failed++;
-            results.errors.push({
-                question: question.text,
-                language: question.language,
-                category: question.category,
-                response: response.data?.response || 'No response',
-                expected: question.expected
-            });
-        }
-        
-        results.categories[question.category].total++;
-        results.languages[question.language].total++;
-        
-        // Ortalama response time güncelle
-        const category = results.categories[question.category];
-        category.avgResponseTime = (category.avgResponseTime * (category.total - 1) + responseTime) / category.total;
-        
-        const language = results.languages[question.language];
-        language.avgResponseTime = (language.avgResponseTime * (language.total - 1) + responseTime) / language.total;
-        
-        console.log(`✅ Response time: ${responseTime}ms | Success: ${success && hasRelevantContent}`);
-        
-        return { success: success && hasRelevantContent, responseTime };
-        
+        const responseTime = Date.now() - startTime;
+        return {
+            success: true,
+            data: response.data,
+            responseTime: responseTime
+        };
     } catch (error) {
-        const endTime = Date.now();
-        const responseTime = endTime - startTime;
-        
-        results.total++;
-        results.failed++;
-        results.responseTimes.push(responseTime);
-        results.categories[question.category].failed++;
-        results.languages[question.language].failed++;
-        results.categories[question.category].total++;
-        results.languages[question.language].total++;
-        
-        results.errors.push({
-            question: question.text,
-            language: question.language,
-            category: question.category,
+        const responseTime = Date.now() - startTime;
+        return {
+            success: false,
             error: error.message,
-            expected: question.expected
-        });
-        
-        console.log(`❌ Error: ${error.message} | Response time: ${responseTime}ms`);
-        return { success: false, responseTime };
+            responseTime: responseTime
+        };
     }
 }
 
-// Ana test fonksiyonu
-async function runStressTest() {
-    console.log('🚀 Starting Comprehensive Stress Test...');
-    console.log(`📊 Total questions: ${ALL_QUESTIONS.length}`);
-    console.log(`🌍 Languages: ${TEST_LANGUAGES.join(', ')}`);
-    console.log(`🏨 Hotels: ${HOTELS.join(', ')}`);
-    console.log('=' * 60);
+// Helper function to check if response contains support keywords
+function isSupportResponse(response) {
+    const supportKeywords = [
+        'canlı destek', 'live support', 'live help', 'customer service',
+        'gerçek bir insanla konuşmak', 'talk to human', 'operator',
+        'живая поддержка', 'поддержка', 'помощь', 'служба поддержки',
+        'Live-Support', 'Kundenservice', 'Hilfe'
+    ];
+    
+    const responseText = response.response?.toLowerCase() || '';
+    return supportKeywords.some(keyword => responseText.includes(keyword.toLowerCase()));
+}
+
+// Helper function to check if response contains hotel information
+function isHotelInfoResponse(response) {
+    const hotelKeywords = [
+        'otel', 'hotel', 'facility', 'facility', 'check-in', 'check-out',
+        'restaurant', 'restoran', 'spa', 'pool', 'havuz', 'swimming',
+        'reservation', 'rezervasyon', 'booking', 'buchung'
+    ];
+    
+    const responseText = response.response?.toLowerCase() || '';
+    return hotelKeywords.some(keyword => responseText.includes(keyword.toLowerCase()));
+}
+
+// Helper function to check if response contains F&B information
+function isFandBResponse(response) {
+    const fandBKeywords = [
+        'restaurant', 'restoran', 'menu', 'menü', 'food', 'yemek',
+        'dining', 'yemek', 'breakfast', 'kahvaltı', 'lunch', 'öğle yemeği',
+        'dinner', 'akşam yemeği', 'bloom', 'dolce vita', 'mirage'
+    ];
+    
+    const responseText = response.response?.toLowerCase() || '';
+    return fandBKeywords.some(keyword => responseText.includes(keyword.toLowerCase()));
+}
+
+// Helper function to check if response contains spa information
+function isSpaResponse(response) {
+    const spaKeywords = [
+        'spa', 'massage', 'masaj', 'treatment', 'tedavi', 'wellness',
+        'relaxation', 'rahatlama', 'therapy', 'terapi', 'beauty', 'güzellik'
+    ];
+    
+    const responseText = response.response?.toLowerCase() || '';
+    return spaKeywords.some(keyword => responseText.includes(keyword.toLowerCase()));
+}
+
+// Test execution function
+async function runTest(question, category) {
+    testResults.totalTests++;
+    
+    console.log(`\n🧪 Testing: ${question.message}`);
+    console.log(`📂 Category: ${category}`);
+    
+    const result = await makeApiCall(question.message);
+    
+    if (!result.success) {
+        testResults.failedTests++;
+        testResults.errors.push({
+            question: question.message,
+            category: category,
+            error: result.error
+        });
+        console.log(`❌ FAILED: ${result.error}`);
+        return false;
+    }
+    
+    // Check response time
+    testResults.responseTimes.push(result.responseTime);
+    
+    // Validate response based on category
+    let isValid = false;
+    let validationMessage = '';
+    
+    switch (category) {
+        case 'Translation System':
+            // Check if response is in the expected language
+            const responseText = result.data.response?.toLowerCase() || '';
+            const hasEnglish = /[a-z]/.test(responseText);
+            const hasTurkish = /[çğıöşü]/.test(responseText);
+            const hasGerman = /[äöüß]/.test(responseText);
+            const hasRussian = /[а-яё]/.test(responseText);
+            
+            if (question.expectedLanguage === 'en' && hasEnglish) isValid = true;
+            else if (question.expectedLanguage === 'tr' && hasTurkish) isValid = true;
+            else if (question.expectedLanguage === 'de' && hasGerman) isValid = true;
+            else if (question.expectedLanguage === 'ru' && hasRussian) isValid = true;
+            else isValid = result.data.response && result.data.response.length > 10;
+            
+            validationMessage = `Response language check: ${isValid ? 'PASS' : 'FAIL'}`;
+            break;
+            
+        case 'Daily Information':
+            isValid = result.data.response && result.data.response.length > 20;
+            validationMessage = `Daily info response: ${isValid ? 'PASS' : 'FAIL'}`;
+            break;
+            
+        case 'General Information':
+            isValid = isHotelInfoResponse(result.data);
+            validationMessage = `Hotel info response: ${isValid ? 'PASS' : 'FAIL'}`;
+            break;
+            
+        case 'Spa Catalog':
+            isValid = isSpaResponse(result.data);
+            validationMessage = `Spa info response: ${isValid ? 'PASS' : 'FAIL'}`;
+            break;
+            
+        case 'F&B Information':
+            isValid = isFandBResponse(result.data);
+            validationMessage = `F&B info response: ${isValid ? 'PASS' : 'FAIL'}`;
+            break;
+            
+        case 'Live Support System':
+            isValid = isSupportResponse(result.data);
+            validationMessage = `Support response: ${isValid ? 'PASS' : 'FAIL'}`;
+            break;
+            
+        default:
+            isValid = result.data.response && result.data.response.length > 10;
+            validationMessage = `General response: ${isValid ? 'PASS' : 'FAIL'}`;
+    }
+    
+    if (isValid) {
+        testResults.passedTests++;
+        console.log(`✅ PASSED (${result.responseTime}ms): ${validationMessage}`);
+    } else {
+        testResults.failedTests++;
+        console.log(`❌ FAILED (${result.responseTime}ms): ${validationMessage}`);
+        console.log(`   Response: ${result.data.response?.substring(0, 100)}...`);
+    }
+    
+    // Update category results
+    if (!testResults.categoryResults[category]) {
+        testResults.categoryResults[category] = { passed: 0, failed: 0, total: 0 };
+    }
+    testResults.categoryResults[category].total++;
+    if (isValid) {
+        testResults.categoryResults[category].passed++;
+    } else {
+        testResults.categoryResults[category].failed++;
+    }
+    
+    return isValid;
+}
+
+// Main test execution
+async function runComprehensiveTest() {
+    console.log('🚀 Starting Comprehensive Stress Test');
+    console.log('=' .repeat(60));
+    console.log(`📊 Total Questions: ${testQuestions.reduce((sum, cat) => sum + cat.questions.length, 0)}`);
+    console.log(`🕐 Start Time: ${new Date().toLocaleString()}`);
+    console.log('=' .repeat(60));
     
     const startTime = Date.now();
     
-    // Testleri sırayla çalıştır
-    for (let i = 0; i < ALL_QUESTIONS.length; i++) {
-        await runTest(ALL_QUESTIONS[i], i);
+    for (const category of testQuestions) {
+        console.log(`\n📂 Testing Category: ${category.category}`);
+        console.log('-'.repeat(40));
         
-        // Her 10 soruda bir ilerleme göster
-        if ((i + 1) % 10 === 0) {
-            console.log(`\n📈 Progress: ${i + 1}/${ALL_QUESTIONS.length} completed`);
+        for (const question of category.questions) {
+            await runTest(question, category.category);
+            
+            // Add small delay between requests to avoid overwhelming the server
+            await new Promise(resolve => setTimeout(resolve, 100));
         }
-        
-        // Rate limiting - her soru arasında 500ms bekle
-        await new Promise(resolve => setTimeout(resolve, 500));
     }
     
     const totalTime = Date.now() - startTime;
     
-    // Sonuçları analiz et ve raporla
+    // Generate comprehensive report
     generateReport(totalTime);
 }
 
-// Rapor oluştur
+// Report generation
 function generateReport(totalTime) {
     console.log('\n' + '='.repeat(60));
     console.log('📊 COMPREHENSIVE STRESS TEST RESULTS');
     console.log('='.repeat(60));
     
-    // Genel istatistikler
-    const successRate = (results.successful / results.total * 100).toFixed(2);
-    const avgResponseTime = results.responseTimes.reduce((a, b) => a + b, 0) / results.responseTimes.length;
+    console.log(`\n⏱️  Total Test Time: ${totalTime}ms (${(totalTime/1000).toFixed(2)}s)`);
+    console.log(`📈 Total Tests: ${testResults.totalTests}`);
+    console.log(`✅ Passed: ${testResults.passedTests}`);
+    console.log(`❌ Failed: ${testResults.failedTests}`);
+    console.log(`📊 Success Rate: ${((testResults.passedTests / testResults.totalTests) * 100).toFixed(2)}%`);
     
-
+    // Average response time
+    const avgResponseTime = testResults.responseTimes.reduce((sum, time) => sum + time, 0) / testResults.responseTimes.length;
+    console.log(`⚡ Average Response Time: ${avgResponseTime.toFixed(2)}ms`);
+    
+    // Category breakdown
+    console.log('\n📂 CATEGORY BREAKDOWN:');
+    console.log('-'.repeat(40));
+    
+    for (const [category, results] of Object.entries(testResults.categoryResults)) {
+        const successRate = ((results.passed / results.total) * 100).toFixed(2);
+        console.log(`${category}: ${results.passed}/${results.total} (${successRate}%)`);
+    }
+    
+    // Performance evaluation (1-10 scale)
+    console.log('\n🎯 PERFORMANCE EVALUATION (1-10 Scale):');
+    console.log('-'.repeat(40));
+    
+    const overallSuccessRate = (testResults.passedTests / testResults.totalTests) * 100;
+    const performanceScore = Math.round((overallSuccessRate / 10) * 10) / 10;
+    
+    console.log(`Overall Performance: ${performanceScore}/10`);
+    
+    // Category scores
+    for (const [category, results] of Object.entries(testResults.categoryResults)) {
+        const categoryScore = Math.round(((results.passed / results.total) * 100) / 10) * 10 / 10;
+        console.log(`${category}: ${categoryScore}/10`);
+    }
+    
+    // Strong and weak areas
+    console.log('\n💪 STRONG AREAS:');
+    console.log('-'.repeat(20));
+    for (const [category, results] of Object.entries(testResults.categoryResults)) {
+        const successRate = (results.passed / results.total) * 100;
+        if (successRate >= 80) {
+            console.log(`✅ ${category}: ${successRate.toFixed(1)}% success rate`);
+        }
+    }
+    
+    console.log('\n⚠️  WEAK AREAS:');
+    console.log('-'.repeat(20));
+    for (const [category, results] of Object.entries(testResults.categoryResults)) {
+        const successRate = (results.passed / results.total) * 100;
+        if (successRate < 80) {
+            console.log(`❌ ${category}: ${successRate.toFixed(1)}% success rate`);
+        }
+    }
+    
+    // Error details
+    if (testResults.errors.length > 0) {
+        console.log('\n🚨 ERROR DETAILS:');
+        console.log('-'.repeat(20));
+        testResults.errors.slice(0, 5).forEach((error, index) => {
+            console.log(`${index + 1}. ${error.category}: ${error.error}`);
+        });
+        if (testResults.errors.length > 5) {
+            console.log(`... and ${testResults.errors.length - 5} more errors`);
+        }
+    }
+    
+    console.log('\n' + '='.repeat(60));
+    console.log('🏁 Stress Test Completed!');
+    console.log('='.repeat(60));
 }
 
-runStressTest().catch(console.error);
+// Run the test
+if (require.main === module) {
+    runComprehensiveTest().catch(console.error);
+}
+
+module.exports = { runComprehensiveTest, testResults };

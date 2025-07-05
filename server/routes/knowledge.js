@@ -29,7 +29,7 @@ router.post('/upload', adminRouter.auth(), upload.single('file'), async (req, re
     }
 
     const { hotel, language, kind } = req.body;
-    const restaurant = req.body.restaurant; // F&B için restoran bilgisi
+    const sectionName = req.body.sectionName; // Artık genel isim
     const originalFilename = req.file.originalname;
     const filePath = req.file.path;
     const ext = path.extname(originalFilename).toLowerCase();
@@ -94,15 +94,15 @@ router.post('/upload', adminRouter.auth(), upload.single('file'), async (req, re
         // Eğer hotel 'Papillon' veya 'Tümü' ise, Firestore'a 'All' olarak kaydet
         const hotelForFirestore = (hotel === 'Papillon' || hotel === 'Tümü') ? 'All' : hotel;
 
-        // F&B kategorisi için restoran bilgisini de ekle
+        // F&B ve Menu kategorisi için restoran bilgisini de ekle
         let kindForFirestore = kind;
-        let restaurantForFirestore = null;
-        if (kind === 'FB' && restaurant) {
-            kindForFirestore = 'FB';
-            restaurantForFirestore = restaurant.replace(/[^a-zA-Z0-9]/g, '_');
+        let sectionNameForFirestore = null;
+        if ((kind === 'FB' || kind === 'Menu' || kind === 'SPA') && sectionName) {
+            kindForFirestore = kind;
+            sectionNameForFirestore = sectionName.replace(/[^a-zA-Z0-9]/g, '_');
         }
 
-        await firebaseService.storeKnowledge(hotelForFirestore, detectedLanguage, kindForFirestore, textContent, documentDate, restaurantForFirestore);
+        await firebaseService.storeKnowledge(hotelForFirestore, detectedLanguage, kindForFirestore, textContent, documentDate, sectionNameForFirestore);
         fs.unlinkSync(filePath); // Clean up the uploaded file after processing
 
         res.status(200).json({
