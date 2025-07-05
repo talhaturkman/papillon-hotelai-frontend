@@ -24,7 +24,10 @@ app.use(cors({
         'https://ai.talhaturkman.com',           // Production frontend domain
         'https://gen-lang-client-0930707875.web.app',  // Firebase hosting backup
         'https://talhaturkman.com',              // Root domain
-        'https://www.talhaturkman.com'           // WWW subdomain
+        'https://www.talhaturkman.com',          // WWW subdomain
+        'https://papillonai.netlify.app',        // Netlify ana domain (örnek)
+        // Kendi Netlify domaininizi aşağıya ekleyin:
+        // 'https://senin-netlify-domainin.netlify.app',
     ] : [
         'http://localhost:3000', 
         'http://localhost:5173',
@@ -38,7 +41,7 @@ app.use(cors({
         'http://192.168.137.1:63659',   // ✨ Hotspot IP - port 63659 (Serve SPA)
         'http://192.168.137.1:3000',   // 🔥 Hotspot IP - port 3000 (CRITICAL!)
         'http://192.168.137.1:5173',   // Hotspot IP - port 5173
-        /^https?:\/\/192\.168\.\d+\.\d+:(3000|3001|5173|63659)$/,  // Any local network with HTTP/HTTPS
+        /^https?:\/\/192\.168\.\d+\.\d+:(3000|3001|5173|63659)$/,
         'https://gen-lang-client-0930707875.web.app',  // Current Firebase hosting
         'https://ai.talhaturkman.com',           // Production frontend domain
         'https://papillonai-backend.loca.lt'     // Current tunnel
